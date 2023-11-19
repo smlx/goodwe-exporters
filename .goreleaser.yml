@@ -1,0 +1,12 @@
+builds:
+- main: ./cmd/sems_mitm_exporter
+  ldflags:
+  - >
+    -s -w
+    -X "main.commit={{.Commit}}"
+    -X "main.date={{.Date}}"
+    -X "main.goVersion={{.Env.GOVERSION}}"
+    -X "main.projectName={{.ProjectName}}"
+    -X "main.version={{.Version}}"
+  env:
+  - CGO_ENABLED=0
