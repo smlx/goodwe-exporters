@@ -275,6 +275,7 @@ func handleMetricsPacket(
 		log.Debug("couldn't parse metrics", slog.Any("cleartext", cleartext))
 		return fmt.Errorf("couldn't parse metrics: %v", err)
 	}
+	log.Debug("outbound metrics")
 	labels := prometheus.Labels{
 		"model":  model,
 		"serial": string(envelope.DeviceSerial[:]),
