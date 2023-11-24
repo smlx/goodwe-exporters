@@ -106,5 +106,5 @@ jobs:
         labels: ${{ steps.docker_metadata.outputs.labels }}
         file: deploy/docker/Dockerfile
         context: dist/${{ matrix.binary }}_linux_amd64_v1
-        build-args:
-        - BINARY=${{ matrix.binary }}
+        build-args: |
+          BINARY=${{ matrix.binary }}
