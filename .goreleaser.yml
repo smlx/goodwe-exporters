@@ -1,5 +1,7 @@
 builds:
-- main: ./cmd/sems_mitm_exporter
+- id: sems_mitm_exporter
+  binary: sems_mitm_exporter
+  main: ./cmd/sems_mitm_exporter
   ldflags:
   - >
     -s -w
@@ -10,3 +12,9 @@ builds:
     -X "main.version={{.Version}}"
   env:
   - CGO_ENABLED=0
+  goos:
+  - darwin
+  - linux
+  goarch:
+  - amd64
+  - arm64
