@@ -281,6 +281,7 @@ func handleMetricsPacket(
 	// record metrics
 	gridExportWatts.With(labels).Set(float64(metrics.GridWatts))
 	pvGenerationWatts.With(labels).Set(float64(metrics.PVWatts))
+	sumOfGridAndPVWatts.With(labels).Set(float64(metrics.SumOfGridAndPVWatts))
 	unknownInt0.With(labels).Set(float64(metrics.UnknownInt0))
 	unknownInt1.With(labels).Set(float64(metrics.UnknownInt1))
 	unknownInt2.With(labels).Set(float64(metrics.UnknownInt2))
