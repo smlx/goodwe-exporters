@@ -3,7 +3,7 @@ module github.com/smlx/goodwe
 go 1.21.4
 
 require (
-	github.com/alecthomas/assert/v2 v2.1.0
+	github.com/alecthomas/assert/v2 v2.4.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/prometheus/client_golang v1.17.0
@@ -11,7 +11,7 @@ require (
 )
 
 require (
-	github.com/alecthomas/repr v0.1.0 // indirect
+	github.com/alecthomas/repr v0.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
