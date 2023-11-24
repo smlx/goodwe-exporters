@@ -193,15 +193,6 @@ func parseTimeSync(cleartext []byte) (*OutboundTimeSync, error) {
 	return &body, nil
 }
 
-// deviceModel takes a device ID and returns the device model if the device is
-// known. If the device is not known it returns an error.
-func deviceModel(deviceID [8]byte) (string, error) {
-	if model, ok := deviceIDToModel[deviceID]; ok {
-		return model, nil
-	}
-	return "", fmt.Errorf("unknown device ID: %v", deviceID)
-}
-
 // handleTimeSyncPacket handles time sync packet envelope and ciphertext.
 func handleTimeSyncPacket(
 	buf *bytes.Buffer,

@@ -1,0 +1,70 @@
+name: Build
+on: pull_request
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: stable
+    - name: Set up environment
+      run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v5
+      with:
+        version: latest
+        args: build --snapshot --clean
+    - name: Tar up binaries
+      # work around limitations in the upload/download artifact actions
+      # https://github.com/actions/download-artifact#limitations
+      run: tar -cvf dist.tar dist
+    - name: Upload binaries tar file
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist.tar
+        path: dist.tar
+  buildimage:
+    if: ${{ !startsWith(github.head_ref, 'dependabot/') }}
+    strategy:
+      matrix:
+        binary:
+        - sems_mitm_exporter
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Download binaries tar file
+      uses: actions/download-artifact@v3
+      with:
+        name: dist.tar
+    - name: Untar binaries
+      run: tar -xvf dist.tar
+    - name: Login to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    - name: Docker metadata
+      # this id is namespaced per matrix run
+      id: docker_metadata
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}/${{ matrix.binary }}
+    - name: Build and push ${{ matrix.binary }} container image
+      id: docker_build
+      uses: docker/build-push-action@v5
+      with:
+        push: true
+        tags: ${{ steps.docker_metadata.outputs.tags }}
+        labels: ${{ steps.docker_metadata.outputs.labels }}
+        file: deploy/docker/Dockerfile
+        context: dist/${{ matrix.binary }}_linux_amd64_v1
+        build-args:
+        - BINARY=${{ matrix.binary }}

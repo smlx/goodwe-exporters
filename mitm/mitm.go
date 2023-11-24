@@ -221,7 +221,11 @@ func Serve(ctx context.Context, log *slog.Logger) error {
 			break
 		}
 		// accept incoming connections
-		listener.SetDeadline(time.Now().Add(listenTimeout))
+		if err = listener.SetDeadline(time.Now().Add(listenTimeout)); err != nil {
+			log.Error("couldn't set deadline on listener", slog.Any("error", err))
+			cancel()
+			break
+		}
 		conn, err := listener.Accept()
 		if err != nil {
 			// check if timeout reached

@@ -1,0 +1,30 @@
+name: Coverage
+on:
+  push:
+    branches:
+    - main
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Configure git
+      run: |
+        git config --global user.name "$GITHUB_ACTOR"
+        git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+    - name: Set up go
+      uses: actions/setup-go@v4
+      with:
+        go-version: stable
+    - name: Calculate coverage
+      run: |
+        go test -v -covermode=count -coverprofile=coverage.out.raw -coverpkg=./... ./...
+        grep -v mock_ coverage.out.raw > coverage.out
+    - name: Convert coverage to lcov
+      uses: jandelgado/gcov2lcov-action@v1
+    - name: Coveralls
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.github_token }}
