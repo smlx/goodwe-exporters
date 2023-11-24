@@ -16,6 +16,9 @@ jobs:
       with:
         args: --timeout=180s
   commitlint:
+    permissions:
+      pull-requests: read
+      contents: read
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
