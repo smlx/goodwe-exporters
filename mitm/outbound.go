@@ -61,21 +61,21 @@ var (
 		Name: "sum_of_grid_and_pv_watts",
 		Help: "Sum of Grid and PV watts. (sometimes slightly inaccurate?)",
 	}, labelNames)
-	timeSyncRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "time_sync_requests_total",
-		Help: "Count of outbound time sync requests.",
+	timeSyncPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "time_sync_packets_total",
+		Help: "Count of outbound time sync packets.",
 	}, labelNames)
-	timeSyncAckRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "time_sync_ack_requests_total",
-		Help: "Count of outbound time sync acknowledgement requests.",
+	timeSyncAckPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "time_sync_ack_packets_total",
+		Help: "Count of outbound time sync acknowledgement packets.",
 	}, labelNames)
-	metricsRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "metrics_requests_total",
-		Help: "Count of outbound metrics requests.",
+	metricsPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "metrics_packets_total",
+		Help: "Count of outbound metrics packets.",
 	}, labelNames)
-	unknownRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "unknown_requests_total",
-		Help: "Count of outbound unknown requests.",
+	unknownPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "outbound_unknown_packets_total",
+		Help: "Count of outbound unknown packets.",
 	}, labelNames)
 	// prometheus metrics debug
 	unknownInt0 = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -207,32 +207,33 @@ func handleTimeSyncPacket(
 	buf *bytes.Buffer,
 	headerLen uint32,
 	log *slog.Logger,
-) (prometheus.Labels, error) {
+) error {
 	envelope := OutboundEnvelopeTS{}
 	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return nil, fmt.Errorf("couldn't read envelope: %v", err)
+		return fmt.Errorf("couldn't read envelope: %v", err)
 	}
 	model, ok := deviceIDToModel[envelope.DeviceID]
 	if !ok {
-		return nil, fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
+		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
 	}
 	// -2 for packet type field in header and +1 for off-by-one = -1
 	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
 	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
 	if err != nil {
 		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return nil, fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
 	_, err = parseTimeSync(cleartext)
 	if err != nil {
 		log.Debug("couldn't parse time sync", slog.Any("cleartext", cleartext))
-		return nil, fmt.Errorf("couldn't parse time sync: %v", err)
+		return fmt.Errorf("couldn't parse time sync: %v", err)
 	}
 	log.Debug("outbound time sync", slog.Any("cleartext", cleartext))
-	return prometheus.Labels{
+	timeSyncPacketsTotal.With(prometheus.Labels{
 		"model":  model,
 		"serial": string(envelope.DeviceSerial[:]),
-	}, nil
+	}).Inc()
+	return nil
 }
 
 // parseMetrics unmarshals the metrics body.
@@ -253,26 +254,26 @@ func handleMetricsPacket(
 	buf *bytes.Buffer,
 	headerLen uint32,
 	log *slog.Logger,
-) (prometheus.Labels, error) {
+) error {
 	envelope := OutboundEnvelopeTS{}
 	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return nil, fmt.Errorf("couldn't read envelope: %v", err)
+		return fmt.Errorf("couldn't read envelope: %v", err)
 	}
 	model, ok := deviceIDToModel[envelope.DeviceID]
 	if !ok {
-		return nil, fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
+		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
 	}
 	// -2 for packet type field in header and +1 for off-by-one = -1
 	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
 	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
 	if err != nil {
 		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return nil, fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
 	metrics, err := parseMetrics(cleartext)
 	if err != nil {
 		log.Debug("couldn't parse metrics", slog.Any("cleartext", cleartext))
-		return nil, fmt.Errorf("couldn't parse metrics: %v", err)
+		return fmt.Errorf("couldn't parse metrics: %v", err)
 	}
 	labels := prometheus.Labels{
 		"model":  model,
@@ -296,7 +297,8 @@ func handleMetricsPacket(
 	unknownInt11.With(labels).Set(float64(metrics.UnknownInt11))
 	unknownInt12.With(labels).Set(float64(metrics.UnknownInt12))
 	// record debug metrics
-	return labels, nil
+	metricsPacketsTotal.With(labels).Inc()
+	return nil
 }
 
 // handleTimeSyncRespAckPacket handles time sync response ack packet envelope
@@ -305,30 +307,31 @@ func handleTimeSyncRespAckPacket(
 	buf *bytes.Buffer,
 	headerLen uint32,
 	log *slog.Logger,
-) (prometheus.Labels, error) {
+) error {
 	envelope := OutboundEnvelope{}
 	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return nil, fmt.Errorf("couldn't read envelope: %v", err)
+		return fmt.Errorf("couldn't read envelope: %v", err)
 	}
 	model, ok := deviceIDToModel[envelope.DeviceID]
 	if !ok {
-		return nil, fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
+		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
 	}
 	// -2 for packet type field in header and +1 for off-by-one = -1
 	ciphertext := buf.Next(int(headerLen - outboundEnvelopeLen - 1))
 	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
 	if err != nil {
 		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return nil, fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
 	if !slices.Equal(timeSyncRespAck, cleartext) {
 		log.Debug("unknown cleartext in timeSyncRespAck",
 			slog.Any("cleartext", cleartext))
 	}
-	return prometheus.Labels{
+	timeSyncAckPacketsTotal.With(prometheus.Labels{
 		"model":  model,
 		"serial": string(envelope.DeviceSerial[:]),
-	}, nil
+	}).Inc()
+	return nil
 }
 
 // handleUnknownOutboundPacket assumes the packet is a metrics packet with a
@@ -339,35 +342,36 @@ func handleUnknownOutboundPacket(
 	buf *bytes.Buffer,
 	headerLen uint32,
 	log *slog.Logger,
-) (prometheus.Labels, error) {
+) error {
 	envelope := OutboundEnvelopeTS{}
 	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return nil, fmt.Errorf("couldn't read envelope: %v", err)
+		return fmt.Errorf("couldn't read envelope: %v", err)
 	}
 	model, ok := deviceIDToModel[envelope.DeviceID]
 	if !ok {
-		return nil, fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
+		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
 	}
 	// -2 for packet type field in header and +1 for off-by-one = -1
 	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
 	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
 	if err != nil {
 		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return nil, fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
 	log.Debug("decrypted unknown packet", slog.Any("cleartext", cleartext))
 	metrics, err := parseMetrics(cleartext)
 	if err != nil {
 		log.Debug("couldn't parse metrics", slog.Any("cleartext", cleartext))
-		return nil, fmt.Errorf("couldn't parse metrics: %v", err)
+		return fmt.Errorf("couldn't parse metrics: %v", err)
 	}
 	// log values
 	log.Debug("unknown metrics", slog.Any("metrics", metrics),
 		slog.Time("timestamp", envelope.Timestamp.Time()))
-	return prometheus.Labels{
+	unknownPacketsTotal.With(prometheus.Labels{
 		"model":  model,
 		"serial": string(envelope.DeviceSerial[:]),
-	}, nil
+	}).Inc()
+	return nil
 }
 
 // handleOutboundPacket is a handlePacketFunc for outbound packets.
@@ -386,34 +390,26 @@ func handleOutboundPacket(
 	}
 	switch {
 	case slices.Equal(packetTypeTimeSync, header.PacketType[:]):
-		labels, err := handleTimeSyncPacket(buf, header.Length, log)
-		if err != nil {
+		if err := handleTimeSyncPacket(buf, header.Length, log); err != nil {
 			return fmt.Errorf("couldn't handle time sync packet: %v", err)
 		}
-		timeSyncRequestsTotal.With(labels).Inc()
 		return nil
 	case slices.Equal(packetTypeMetrics0, header.PacketType[:]):
 		fallthrough
 	case slices.Equal(packetTypeMetrics1, header.PacketType[:]):
-		labels, err := handleMetricsPacket(buf, header.Length, log)
-		if err != nil {
+		if err := handleMetricsPacket(buf, header.Length, log); err != nil {
 			return fmt.Errorf("couldn't handle metrics packet: %v", err)
 		}
-		metricsRequestsTotal.With(labels).Inc()
 		return nil
 	case slices.Equal(packetTypeTimeSyncRespAck, header.PacketType[:]):
-		labels, err := handleTimeSyncRespAckPacket(buf, header.Length, log)
-		if err != nil {
+		if err := handleTimeSyncRespAckPacket(buf, header.Length, log); err != nil {
 			return fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
 		}
-		timeSyncAckRequestsTotal.With(labels).Inc()
 		return nil
 	default:
-		labels, err := handleUnknownOutboundPacket(buf, header.Length, log)
-		if err != nil {
+		if err := handleUnknownOutboundPacket(buf, header.Length, log); err != nil {
 			return fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		unknownRequestsTotal.With(labels).Inc()
 		return fmt.Errorf("unknown packet type")
 	}
 }

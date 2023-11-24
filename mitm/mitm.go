@@ -244,7 +244,8 @@ func Serve(ctx context.Context, log *slog.Logger) error {
 			continue
 		}
 		connLog := log.With(slog.Any("connID", shortuuid.New()))
-		connLog.Debug("new outbound connection", slog.Any("client", conn.RemoteAddr()))
+		connLog.Debug("new outbound connection",
+			slog.String("client", conn.RemoteAddr().String()))
 		connCtx, cancel := context.WithCancel(listenCtx)
 		// Handle duplex MITM connection in a pair of goroutines.
 		wg.Add(1)
