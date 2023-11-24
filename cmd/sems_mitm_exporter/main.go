@@ -10,7 +10,7 @@ import (
 
 // CLI represents the command-line interface.
 type CLI struct {
-	Debug   bool       `kong:"help='Enable debug logging'"`
+	Debug   bool       `kong:"env='DEBUG',help='Enable debug logging'"`
 	Serve   ServeCmd   `kong:"cmd,default,help='Start the MITM server'"`
 	Version VersionCmd `kong:"cmd,help='Print version information'"`
 }
