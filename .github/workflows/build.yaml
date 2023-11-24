@@ -2,6 +2,8 @@ name: Build
 on: pull_request
 jobs:
   build:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -29,6 +31,9 @@ jobs:
         name: dist.tar
         path: dist.tar
   buildimage:
+    permissions:
+      contents: read
+      packages: write
     if: ${{ !startsWith(github.head_ref, 'dependabot/') }}
     strategy:
       matrix:
@@ -67,4 +72,4 @@ jobs:
         file: deploy/docker/Dockerfile
         context: dist/${{ matrix.binary }}_linux_amd64_v1
         build-args:
-        - BINARY=${{ matrix.binary }}
+          BINARY=${{ matrix.binary }}
