@@ -1,0 +1,3 @@
+FROM alpine:3.18
+ENTRYPOINT ["/${BINARY}"]
+COPY ${BINARY} /
