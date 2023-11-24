@@ -214,18 +214,18 @@ func Serve(ctx context.Context, log *slog.Logger) error {
 	}
 	listenCtx, cancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
-	// accept incoming connections
 	for {
+		// break if ctx cancelled
+		if listenCtx.Err() != nil {
+			cancel()
+			break
+		}
+		// accept incoming connections
 		listener.SetDeadline(time.Now().Add(listenTimeout))
 		conn, err := listener.Accept()
 		if err != nil {
 			// check if timeout reached
 			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-				// break if ctx cancelled
-				if listenCtx.Err() != nil {
-					cancel()
-					break
-				}
 				continue
 			}
 			log.Error("couldn't accept connection", slog.Any("error", err))
