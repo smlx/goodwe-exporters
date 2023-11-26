@@ -55,7 +55,7 @@ type Timestamp [6]byte
 func (t *Timestamp) Time() time.Time {
 	return time.Date(2000+int(t[0]), time.Month(t[1]),
 		int(t[2]), int(t[3]), int(t[4]), int(t[5]), 0,
-		time.FixedZone("+08", 8))
+		time.FixedZone("+08", 8*60*60))
 }
 
 // handlePacketFunc is the type implemented by handle(In|Out)boundPacket.

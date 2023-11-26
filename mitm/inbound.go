@@ -109,8 +109,7 @@ func handleTimeSyncRespPacket(
 		return fmt.Errorf("couldn't parse time sync response: %v", err)
 	}
 	log.Debug("inbound time sync response",
-		slog.Any("cleartext", cleartext),
-		slog.Time("response", tsResp.Timestamp.Time()))
+		slog.Time("responseTimestamp", tsResp.Timestamp.Time()))
 	return nil
 }
 
