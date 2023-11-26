@@ -233,7 +233,7 @@ func handleTimeSyncPacket(
 		log.Debug("couldn't parse time sync", slog.Any("cleartext", cleartext))
 		return fmt.Errorf("couldn't parse time sync: %v", err)
 	}
-	log.Debug("outbound time sync", slog.Any("cleartext", cleartext))
+	log.Debug("outbound time sync")
 	timeSyncPacketsTotal.With(prometheus.Labels{
 		"model":  model,
 		"serial": string(envelope.DeviceSerial[:]),
