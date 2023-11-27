@@ -73,12 +73,13 @@ var (
 		Help: "Cumulative energy imported. " +
 			"When energy is exported, this value is static.",
 	}, labelNames)
-	sumOfEnergyGenerationAndImportDecawattHoursTotal = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "sum_of_energy_generation_and_import_decawatt_hours_total",
-			Help: "Sum of energy generation and import.",
-		}, labelNames)
 	// less useful and unknown metrics
+	sumOfEnergyImportLessGenerationDecawattHoursTotal = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "sum_of_energy_import_less_generation_decawatt_hours_total",
+			Help: "Sum of energy import less generation. " +
+				"Not particularly useful since it only increases while energy import is greater than generation.",
+		}, labelNames)
 	sumOfPowerGenerationAndExportWatts = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "sum_of_power_generation_and_export_watts",
 		Help: "Sum of power generation and export. " +
@@ -170,28 +171,28 @@ type OutboundTimeSync struct {
 
 // OutboundMetrics is the cleartext body of an outbound metrics packet.
 type OutboundMetrics struct {
-	PacketType                                       [7]byte  // 0x00-0x06 Packet type?
-	EnergyExportDecawattHoursTotal                   int32    // 0x07-0x0a Units of 10 watt-hours
-	UnknownBytes1                                    [2]byte  // 0x0b-0x0c Fixed null?
-	EnergyGenerationDecawattHoursTotal               int32    // 0x0d-0x10 Units of 10 watt-hours
-	UnknownBytes2                                    [8]byte  // 0x11-0x18 Fixed null?
-	SumOfEnergyGenerationAndExportDecawattHoursTotal int32    // 0x19-0x1c Units of 10 watt-hours
-	UnknownBytes3                                    [2]byte  // 0x1d-0x1e Fixed null?
-	EnergyImportDecawattHoursTotal                   int32    // 0x1f-0x22 Units of 10 watt-hours
-	UnknownBytes4                                    [16]byte // 0x23-0x32 Fixed bytes?
-	SumOfEnergyGenerationAndImportDecawattHoursTotal int16    // 0x33-0x34 Units of 10 watt-hours
-	UnknownInt5                                      int32    // 0x35-0x38 Fixed int value?
-	UnknownInt6                                      int16    // 0x39-0x3a Gauge?
-	UnknownInt7                                      int16    // 0x3b-0x3c Gauge?
-	UnknownInt8                                      int16    // 0x3d-0x3e Incrementing counter?
-	UnknownInt9                                      int32    // 0x3f-0x42 Gauge?
-	UnknownInt10                                     int32    // 0x43-0x46 Gauge?
-	UnknownInt11                                     int32    // 0x47-0x4a Fixed int zero?
-	PowerExportWatts                                 int32    // 0x4b-0x4e
-	PowerGenerationWatts                             int32    // 0x4f-0x52
-	UnknownInt12                                     int32    // 0x53-0x56 Fixed int zero?
-	SumOfPowerGenerationAndExportWatts               int32    // 0x57-0x5a Sum of GridWatts and PVWatts (sometimes slightly inaccurate?)
-	UnknownBytes5                                    [21]byte // 0x5b-0x6f Fixed bytes?
+	PacketType                                        [7]byte  // 0x00-0x06 Packet type?
+	EnergyExportDecawattHoursTotal                    int32    // 0x07-0x0a Units of 10 watt-hours
+	UnknownBytes1                                     [2]byte  // 0x0b-0x0c Fixed null?
+	EnergyGenerationDecawattHoursTotal                int32    // 0x0d-0x10 Units of 10 watt-hours
+	UnknownBytes2                                     [8]byte  // 0x11-0x18 Fixed null?
+	SumOfEnergyGenerationAndExportDecawattHoursTotal  int32    // 0x19-0x1c Units of 10 watt-hours
+	UnknownBytes3                                     [2]byte  // 0x1d-0x1e Fixed null?
+	EnergyImportDecawattHoursTotal                    int32    // 0x1f-0x22 Units of 10 watt-hours
+	UnknownBytes4                                     [16]byte // 0x23-0x32 Fixed bytes?
+	SumOfEnergyImportLessGenerationDecawattHoursTotal int16    // 0x33-0x34 Units of 10 watt-hours
+	UnknownInt5                                       int32    // 0x35-0x38 Fixed int value?
+	UnknownInt6                                       int16    // 0x39-0x3a Gauge?
+	UnknownInt7                                       int16    // 0x3b-0x3c Gauge?
+	UnknownInt8                                       int16    // 0x3d-0x3e Incrementing counter?
+	UnknownInt9                                       int32    // 0x3f-0x42 Gauge?
+	UnknownInt10                                      int32    // 0x43-0x46 Gauge?
+	UnknownInt11                                      int32    // 0x47-0x4a Fixed int zero?
+	PowerExportWatts                                  int32    // 0x4b-0x4e
+	PowerGenerationWatts                              int32    // 0x4f-0x52
+	UnknownInt12                                      int32    // 0x53-0x56 Fixed int zero?
+	SumOfPowerGenerationAndExportWatts                int32    // 0x57-0x5a Sum of GridWatts and PVWatts (sometimes slightly inaccurate?)
+	UnknownBytes5                                     [21]byte // 0x5b-0x6f Fixed bytes?
 }
 
 // parseTimeSync unmarshals the time sync body.
@@ -296,8 +297,8 @@ func handleMetricsPacket(
 		float64(metrics.EnergyExportDecawattHoursTotal))
 	energyImportDecawattHoursTotal.With(labels).Set(
 		float64(metrics.EnergyImportDecawattHoursTotal))
-	sumOfEnergyGenerationAndImportDecawattHoursTotal.With(labels).Set(
-		float64(metrics.SumOfEnergyGenerationAndImportDecawattHoursTotal))
+	sumOfEnergyImportLessGenerationDecawattHoursTotal.With(labels).Set(
+		float64(metrics.SumOfEnergyImportLessGenerationDecawattHoursTotal))
 	sumOfPowerGenerationAndExportWatts.With(labels).Set(
 		float64(metrics.SumOfPowerGenerationAndExportWatts))
 	sumOfEnergyGenerationAndExportDecawattHoursTotal.With(labels).Set(
