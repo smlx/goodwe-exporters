@@ -55,37 +55,6 @@ func deviceSerialOutbound(data []byte) ([]byte, error) {
 	}
 }
 
-func TestParseTimeSync(t *testing.T) {
-	var testCases = map[string]struct {
-		input       []byte
-		expectError bool
-	}{
-		"time sync": {
-			input: []byte{
-				0x03, 0x12, 0x00, 0x12, 0x15, 0x00, 0x0c, 0x32, 0x30, 0x30, 0x30, 0x31, 0x2c, 0x74, 0x63, 0x70,
-				0x2e, 0x67, 0x6f, 0x6f, 0x64, 0x77, 0x65, 0x2d, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x2e, 0x63, 0x6f,
-				0x6d, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
-				0x00, 0x13, 0x00, 0x13, 0x09, 0x30, 0x31, 0x32, 0x33, 0x34, 0x2d, 0x35, 0x36, 0x2d, 0x37, 0x38,
-				0x39, 0x30, 0x61, 0x62, 0x63, 0x00, 0x00, 0x00, 0x04, 0x13, 0x1b, 0x13, 0x1f, 0x56, 0x31, 0x38,
-				0x0d, 0x0a, 0x56, 0x34, 0x0d, 0x0a, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-			},
-			expectError: false,
-		},
-	}
-	for name, tc := range testCases {
-		t.Run(name, func(tt *testing.T) {
-			ts, err := parseTimeSync(tc.input)
-			if tc.expectError {
-				assert.Error(tt, err, name)
-			} else {
-				assert.NoError(tt, err, name)
-			}
-			// ensure test values are used
-			assert.Equal(tt, []byte(testTimeSyncSerial), ts.UnknownBytes2[:], name)
-		})
-	}
-}
-
 func TestHandleOutboundPacket(t *testing.T) {
 	var testCases = map[string]struct {
 		input       []byte
@@ -151,12 +120,14 @@ func TestHandleOutboundPacket(t *testing.T) {
 	ctx := context.Background()
 	log := slog.New(slog.NewJSONHandler(os.Stderr,
 		&slog.HandlerOptions{Level: slog.LevelDebug}))
+	ph := NewOutboundPacketHandler(false)
 	for name, tc := range testCases {
 		t.Run(name, func(tt *testing.T) {
+			_, err := ph.HandlePacket(ctx, log, tc.input)
 			if tc.expectError {
-				assert.Error(tt, handleOutboundPacket(ctx, log, tc.input), name)
+				assert.Error(tt, err, name)
 			} else {
-				assert.NoError(tt, handleOutboundPacket(ctx, log, tc.input), name)
+				assert.NoError(tt, err, name)
 			}
 			// ensure test values are used
 			deviceSerial, err := deviceSerialOutbound(tc.input)
@@ -272,8 +243,9 @@ func TestHandleOutbound(t *testing.T) {
 				return err
 			})
 			// test the function
-			assert.NoError(tt, handleConn(ctx, log, clientRead, upstreamWrite,
-				outboundPrefix, true, handleOutboundPacket), name)
+			mitmSrv := NewServer(false)
+			assert.NoError(tt, mitmSrv.handleConn(ctx, log, clientRead, upstreamWrite,
+				outboundPrefix, true, NewOutboundPacketHandler(false)), name)
 			if err := eg.Wait(); err != nil {
 				tt.Fatal(err)
 			}

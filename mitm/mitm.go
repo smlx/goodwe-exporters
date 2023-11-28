@@ -58,8 +58,11 @@ func (t *Timestamp) Time() time.Time {
 		time.FixedZone("+08", 8*60*60))
 }
 
-// handlePacketFunc is the type implemented by handle(In|Out)boundPacket.
-type handlePacketFunc func(context.Context, *slog.Logger, []byte) error
+// PacketHandler is an interface implemented by both outbound and inbound
+// packet handlers.
+type PacketHandler interface {
+	HandlePacket(context.Context, *slog.Logger, []byte) ([]byte, error)
+}
 
 // decryptCiphertext decrypts the given ciphertext using the fixed key.
 func decryptCiphertext(iv, ciphertext []byte) ([]byte, error) {
@@ -74,6 +77,23 @@ func decryptCiphertext(iv, ciphertext []byte) ([]byte, error) {
 	cleartext := make([]byte, len(ciphertext))
 	mode.CryptBlocks(cleartext, ciphertext)
 	return cleartext, nil
+}
+
+// encryptCleartext decrypts the given ciphertext using the fixed key.
+// This function does no padding - the cleartext length must be a multiple of
+// blocksize.
+func encryptCleartext(iv, cleartext []byte) ([]byte, error) {
+	if len(cleartext)%16 != 0 {
+		return nil, fmt.Errorf("invalid cleartext length: %d", len(cleartext))
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't construct new cipher: %v", err)
+	}
+	mode := cipher.NewCBCEncrypter(block, iv)
+	ciphertext := make([]byte, len(cleartext))
+	mode.CryptBlocks(ciphertext, cleartext)
+	return ciphertext, nil
 }
 
 // validateCRC checks that the Modbus CRC of the given data is correct. It
@@ -104,17 +124,17 @@ func readPacket(r *bufio.Reader, prefix []byte) ([]byte, error) {
 }
 
 // handleConn intercepts traffic in one direction of a TCP connection.
-func handleConn(
+func (s *Server) handleConn(
 	ctx context.Context,
 	log *slog.Logger,
 	in net.Conn,
 	out net.Conn,
 	packetPrefix []byte,
 	forwardOnError bool,
-	handlePacket handlePacketFunc,
+	ph PacketHandler,
 ) error {
 	var reader = bufio.NewReader(in)
-	var data []byte
+	var data, newData []byte
 	for {
 		if ctx.Err() != nil {
 			return nil // context cancelled
@@ -167,7 +187,8 @@ func handleConn(
 					continue // don't forward invalid data
 				}
 			}
-			if err = handlePacket(ctx, log, data); err != nil {
+			newData, err = ph.HandlePacket(ctx, log, data)
+			if err != nil {
 				// not a fatal error, since maybe we just don't handle the
 				// packet correctly yet.
 				log.Warn("couldn't handle packet",
@@ -176,6 +197,10 @@ func handleConn(
 				if !forwardOnError {
 					continue // don't forward packets with handling errors
 				}
+			}
+			if newData != nil && s.batsignal {
+				// mutate the packet to summon batman to the SEMS Portal
+				data = newData
 			}
 		default:
 			log.Warn("unknown prefix", slog.Any("prefix", prefix))
@@ -200,8 +225,23 @@ func handleConn(
 	}
 }
 
+// Server implements the MITM server.
+type Server struct {
+	batsignal bool
+}
+
+// NewServer constructs a new Server.
+func NewServer(batsignal bool) *Server {
+	return &Server{
+		batsignal: batsignal,
+	}
+}
+
 // Serve starts the sniff server.
-func Serve(ctx context.Context, log *slog.Logger) error {
+func (s *Server) Serve(ctx context.Context, log *slog.Logger) error {
+	if s.batsignal {
+		setupBatsignal()
+	}
 	// make an outbound connection upstream as per a regular Goodwe device
 	upstreamAddr, err := net.ResolveTCPAddr("tcp4", upstreamHost)
 	if err != nil {
@@ -259,8 +299,8 @@ func Serve(ctx context.Context, log *slog.Logger) error {
 			defer upstream.Close()
 			defer cancel()
 			outboundLog := connLog.With(slog.String("direction", "outbound"))
-			err := handleConn(connCtx, outboundLog, conn, upstream, outboundPrefix,
-				true, handleOutboundPacket)
+			err := s.handleConn(connCtx, outboundLog, conn, upstream, outboundPrefix,
+				true, NewOutboundPacketHandler(s.batsignal))
 			if err != nil {
 				outboundLog.Error("couldn't handle connection", slog.Any("error", err))
 			}
@@ -273,8 +313,8 @@ func Serve(ctx context.Context, log *slog.Logger) error {
 			defer upstream.Close()
 			defer cancel()
 			inboundLog := connLog.With(slog.String("direction", "inbound"))
-			err := handleConn(connCtx, inboundLog, upstream, conn, inboundPrefix,
-				false, handleInboundPacket)
+			err := s.handleConn(connCtx, inboundLog, upstream, conn, inboundPrefix,
+				false, NewInboundPacketHandler())
 			if err != nil {
 				inboundLog.Error("couldn't handle connection", slog.Any("error", err))
 			}
