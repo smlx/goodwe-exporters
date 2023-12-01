@@ -68,12 +68,14 @@ func TestHandleInboundPacket(t *testing.T) {
 	ctx := context.Background()
 	log := slog.New(slog.NewJSONHandler(os.Stderr,
 		&slog.HandlerOptions{Level: slog.LevelDebug}))
+	ph := NewInboundPacketHandler()
 	for name, tc := range testCases {
 		t.Run(name, func(tt *testing.T) {
+			_, err := ph.HandlePacket(ctx, log, tc.input)
 			if tc.expectError {
-				assert.Error(tt, handleInboundPacket(ctx, log, tc.input), name)
+				assert.Error(tt, err, name)
 			} else {
-				assert.NoError(tt, handleInboundPacket(ctx, log, tc.input), name)
+				assert.NoError(tt, err, name)
 			}
 			deviceSerial, err := deviceSerialInbound(tc.input)
 			assert.NoError(tt, err, name)
@@ -203,8 +205,9 @@ func TestHandleInbound(t *testing.T) {
 				return err
 			})
 			// test the function
-			assert.NoError(tt, handleConn(ctx, log, upstreamRead, clientWrite,
-				inboundPrefix, false, handleInboundPacket), name)
+			mitmSrv := NewServer(false)
+			assert.NoError(tt, mitmSrv.handleConn(ctx, log, upstreamRead, clientWrite,
+				inboundPrefix, false, NewInboundPacketHandler()), name)
 			if err := eg.Wait(); err != nil {
 				tt.Fatal(err)
 			}

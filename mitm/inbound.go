@@ -7,13 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-)
 
-const (
-	// packet structure constants
-	inboundEnvelopeLen = 0x20
-	// cleartext body constants
-	timeSyncRespLen = 0x10
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
@@ -24,130 +20,114 @@ var (
 	packetTypeMetricsAck1  = []byte{0x03, 0x45}
 	packetTypeMetricsAck2  = []byte{0x03, 0x03}
 	packetTypeTimeSyncResp = []byte{0x01, 0x16}
+	// protocol constants
+	// metricsAckData is sent by the server when it receives data sucessfully
+	metricsAckData = []byte{
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	// metricsNackData is sent by the server when it receives data unsucessfully (e.g. bad CRC)
+	metricsNackData = []byte{
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	// prometheus metrics
+	inboundUnknownPacketsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "inbound_unknown_packets_total",
+		Help: "Count of outbound unknown packets.",
+	})
 )
-
-// InboundHeader represents the header of an inbound packet.
-type InboundHeader struct {
-	GW         [2]byte // GW prefix
-	Length     uint32  // Off-by-one
-	PacketType [2]byte // Packet type identifier
-}
-
-// InboundEnvelope is the plaintext wrapper around the ciphertext.
-type InboundEnvelope struct {
-	DeviceID     [8]byte  // ASCII
-	DeviceSerial [8]byte  // ASCII
-	IV           [16]byte // AES-128 Initialization Vector
-}
-
-// InboundTimeSyncResp is the cleartext body of an inbound time sync packet.
-type InboundTimeSyncResp struct {
-	PacketType   [4]byte   // 0x00-0x03 Packet type?
-	Timestamp    Timestamp // 0x04-0x09 Y M D H m s
-	UnknownBytes [6]byte   // 0x0a-0x0f Fixed null?
-}
 
 // handleMetricsAckPacket handles metrics ack packet envelope and ciphertext.
 func handleMetricsAckPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
-	envelope := InboundEnvelope{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - inboundEnvelopeLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
+	var inboundMetricsAck InboundMetricsAckPacket
+	err := inboundMetricsAck.UnmarshalBinary(data)
 	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't unmarshal metrics ack: %v", err)
 	}
-	if !slices.Equal(metricsAck, cleartext) {
-		log.Debug("unknown cleartext in metrics ack",
-			slog.Any("cleartext", cleartext))
-		return fmt.Errorf("unknown cleartext in metrics ack")
+	switch {
+	case slices.Equal(inboundMetricsAck.Data[:], metricsAckData):
+		log.Debug("metrics ack")
+	case slices.Equal(inboundMetricsAck.Data[:], metricsNackData):
+		log.Warn("metrics nack. bad metrics CRC?")
+	default:
+		log.Warn("unknown cleartext in metrics ack",
+			slog.Any("cleartext", inboundMetricsAck.Data[:]))
 	}
-	log.Debug("metrics ack")
 	return nil
-}
-
-// parseTimeSyncResp unmarshals the time sync response body.
-func parseTimeSyncResp(cleartext []byte) (*InboundTimeSyncResp, error) {
-	if len(cleartext) != timeSyncRespLen {
-		return nil, fmt.Errorf("invalid cleartext length: %d", len(cleartext))
-	}
-	body := InboundTimeSyncResp{}
-	buf := bytes.NewBuffer(cleartext)
-	if err := binary.Read(buf, binary.BigEndian, &body); err != nil {
-		return nil, fmt.Errorf("couldn't read cleartext: %v", err)
-	}
-	return &body, nil
 }
 
 // handleTimeSyncRespPacket handles time sync response packet envelope and
 // ciphertext.
 func handleTimeSyncRespPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
-	envelope := InboundEnvelope{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - inboundEnvelopeLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
+	var timeSyncResp InboundTimeSyncRespPacket
+	err := timeSyncResp.UnmarshalBinary(data)
 	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
-	}
-	tsResp, err := parseTimeSyncResp(cleartext)
-	if err != nil {
-		return fmt.Errorf("couldn't parse time sync response: %v", err)
+		return fmt.Errorf("couldn't unmarshal time sync response: %v", err)
 	}
 	log.Debug("inbound time sync response",
-		slog.Time("responseTimestamp", tsResp.Timestamp.Time()))
+		slog.Time("responseTimestamp", timeSyncResp.Timestamp.Time()))
 	return nil
 }
 
 // handleUnknownInboundPacket decrypts and logs the cleartext of an
 // unrecognized inbound packet.
 func handleUnknownInboundPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
+	log.Info("unknown packet", slog.Any("data", data))
+	inboundUnknownPacketsTotal.Inc()
 	envelope := InboundEnvelope{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - inboundEnvelopeLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
+	envData, bodyData := data[:binary.Size(envelope)], data[binary.Size(envelope):]
+	envBuf := bytes.NewBuffer(envData)
+	err := binary.Read(envBuf, binary.BigEndian, &envelope)
 	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
+		return fmt.Errorf("couldn't unmarshal envelope %T: %v", envelope, err)
+	}
+	cleartext, err := decryptCiphertext(envelope.IV[:], bodyData)
+	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
-	log.Info("unknown packet", slog.Any("cleartext", cleartext))
+	log.Info("unknown packet cleartext", slog.Any("cleartext", cleartext))
 	return nil
 }
 
-// handleInboundPacket is a handlePacketFunc for inbound packets.
-func handleInboundPacket(
+// InboundPacketHandler is a PacketHandler for inbound packets.
+type InboundPacketHandler struct{}
+
+// NewInboundPacketHandler constructs an InboundPacketHandler.
+func NewInboundPacketHandler() *InboundPacketHandler {
+	return &InboundPacketHandler{}
+}
+
+// HandlePacket implements the PacketHandler interface.
+func (h *InboundPacketHandler) HandlePacket(
 	ctx context.Context,
 	log *slog.Logger,
 	data []byte,
-) error {
+) ([]byte, error) {
 	if err := validateCRC(data, inboundCRCByteOrder); err != nil {
-		return fmt.Errorf("couldn't validate CRC: %v", err)
+		return nil, fmt.Errorf("couldn't validate CRC: %v", err)
 	}
+	// slice up the header and body, and discard CRC bytes
 	header := InboundHeader{}
-	buf := bytes.NewBuffer(data)
-	if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
-		return fmt.Errorf("couldn't read header: %v", err)
+	headerData, bodyData :=
+		data[:binary.Size(header)], data[binary.Size(header):len(data)-2]
+	if err := header.UnmarshalBinary(headerData); err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal header: %v", err)
+	}
+	// validate data size: -2 for packet type field and +1 for length off-by-one = -1
+	expectedBodySize := header.Length - 1
+	if len(bodyData) != int(expectedBodySize) {
+		return nil, fmt.Errorf("expected body size %d, got %d",
+			expectedBodySize, len(bodyData))
 	}
 	switch {
 	case slices.Equal(packetTypeMetricsAck0, header.PacketType[:]):
@@ -155,19 +135,19 @@ func handleInboundPacket(
 	case slices.Equal(packetTypeMetricsAck1, header.PacketType[:]):
 		fallthrough
 	case slices.Equal(packetTypeMetricsAck2, header.PacketType[:]):
-		if err := handleMetricsAckPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle metrics ack packet: %v", err)
+		if err := handleMetricsAckPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle metrics ack packet: %v", err)
 		}
-		return nil
+		return nil, nil
 	case slices.Equal(packetTypeTimeSyncResp, header.PacketType[:]):
-		if err := handleTimeSyncRespPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle time sync response packet: %v", err)
+		if err := handleTimeSyncRespPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle time sync response packet: %v", err)
 		}
-		return nil
+		return nil, nil
 	default:
-		if err := handleUnknownInboundPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle unknown packet: %v", err)
+		if err := handleUnknownInboundPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		return fmt.Errorf("unknown packet type")
+		return nil, fmt.Errorf("unknown packet type")
 	}
 }

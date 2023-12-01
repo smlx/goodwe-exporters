@@ -19,10 +19,12 @@ const (
 )
 
 // ServeCmd represents the `serve` command.
-type ServeCmd struct{}
+type ServeCmd struct {
+	Batsignal bool `kong:"env='BATSIGNAL',help='Enable Batsignal mode (draws the bat-insignia on the SEMS portal graph)'"`
+}
 
 // Run the serve command.
-func (*ServeCmd) Run(log *slog.Logger) error {
+func (cmd *ServeCmd) Run(log *slog.Logger) error {
 	// handle signals
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
@@ -57,7 +59,7 @@ func (*ServeCmd) Run(log *slog.Logger) error {
 	})
 	// start mitm server
 	eg.Go(func() error {
-		return mitm.Serve(ctx, log)
+		return mitm.NewServer(cmd.Batsignal).Serve(ctx, log)
 	})
 	return eg.Wait()
 }

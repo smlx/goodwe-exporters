@@ -10,15 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-const (
-	// packet structure constants
-	outboundEnvelopeTSLen = 0x28
-	outboundEnvelopeLen   = 0x20
-	// cleartext body constants
-	timeSyncLen = 0x60
-	metricsLen  = 0x70
+	"github.com/smlx/goodwe"
 )
 
 var (
@@ -34,13 +26,8 @@ var (
 	packetTypeMetrics1        = []byte{0x03, 0x45}
 	packetTypeTimeSyncRespAck = []byte{0x03, 0x10}
 	// protocol constants
-	// metricsAck is sent by the server when it receives data sucessfully
-	metricsAck = []byte{
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	}
-	// timeSyncRespAck occasionally sent by local device after a timeSyncResp (?)
-	timeSyncRespAck = []byte{
+	// timeSyncRespAckData occasionally sent by device after a timeSyncResp (?)
+	timeSyncRespAckData = []byte{
 		0x12, 0x16, 0x12, 0x18, 0x00, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	}
@@ -128,163 +115,52 @@ var (
 		Name: "metrics_packets_total",
 		Help: "Count of outbound metrics packets.",
 	}, labelNames)
-	unknownPacketsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	outboundUnknownPacketsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "outbound_unknown_packets_total",
 		Help: "Count of outbound unknown packets.",
-	}, labelNames)
+	})
 )
-
-// OutboundHeader represents the header of an outbound packet.
-type OutboundHeader struct {
-	PostGW     [6]byte // POSTGW prefix
-	Length     uint32  // Off-by-one
-	PacketType [2]byte // Packet type identifier
-}
-
-// OutboundEnvelope is the plaintext wrapper around the ciphertext.
-type OutboundEnvelope struct {
-	DeviceID     [8]byte // ASCII
-	DeviceSerial [8]byte // ASCII
-	IV           [16]byte
-}
-
-// OutboundEnvelopeTS is the plaintext wrapper, with a timestamp, around the
-// ciphertext.
-type OutboundEnvelopeTS struct {
-	UnknownBytes [2]byte // Fixed null alignment padding?
-	DeviceID     [8]byte // ASCII
-	DeviceSerial [8]byte // ASCII
-	IV           [16]byte
-	Timestamp    Timestamp // Y M D H m s
-}
-
-// OutboundTimeSync is the cleartext body of an outbound time sync packet.
-type OutboundTimeSync struct {
-	PacketType    [7]byte  // 0x00-0x06 Packet type?
-	OutboundAddr  [40]byte // 0x07-0x2e Outbound TCP addr. Null-terminated ASCII.
-	UnknownBytes1 [6]byte  // 0x2f-0x34 Unknown
-	UnknownBytes2 [16]byte // 0x35-0x44 Serial number? ASCII.
-	UnknownInt0   int32    // 0x45-0x48 Unknown
-	UnknownBytes3 [4]byte  // 0x49-0x4c Unknown
-	UnknownBytes4 [19]byte // 0x4d-0x5f Version numbers? Null-terminated ASCII.
-}
-
-// OutboundMetrics is the cleartext body of an outbound metrics packet.
-type OutboundMetrics struct {
-	PacketType                                        [7]byte  // 0x00-0x06 Packet type?
-	EnergyExportDecawattHoursTotal                    int32    // 0x07-0x0a Units of 10 watt-hours
-	UnknownBytes1                                     [2]byte  // 0x0b-0x0c Fixed null?
-	EnergyGenerationDecawattHoursTotal                int32    // 0x0d-0x10 Units of 10 watt-hours
-	UnknownBytes2                                     [8]byte  // 0x11-0x18 Fixed null?
-	SumOfEnergyGenerationAndExportDecawattHoursTotal  int32    // 0x19-0x1c Units of 10 watt-hours
-	UnknownBytes3                                     [2]byte  // 0x1d-0x1e Fixed null?
-	EnergyImportDecawattHoursTotal                    int32    // 0x1f-0x22 Units of 10 watt-hours
-	UnknownBytes4                                     [16]byte // 0x23-0x32 Fixed bytes?
-	SumOfEnergyImportLessGenerationDecawattHoursTotal int16    // 0x33-0x34 Units of 10 watt-hours
-	UnknownInt5                                       int32    // 0x35-0x38 Fixed int value?
-	UnknownInt6                                       int16    // 0x39-0x3a Gauge?
-	UnknownInt7                                       int16    // 0x3b-0x3c Gauge?
-	UnknownInt8                                       int16    // 0x3d-0x3e Incrementing counter?
-	UnknownInt9                                       int32    // 0x3f-0x42 Gauge?
-	UnknownInt10                                      int32    // 0x43-0x46 Gauge?
-	UnknownInt11                                      int32    // 0x47-0x4a Fixed int zero?
-	PowerExportWatts                                  int32    // 0x4b-0x4e
-	PowerGenerationWatts                              int32    // 0x4f-0x52
-	UnknownInt12                                      int32    // 0x53-0x56 Fixed int zero?
-	SumOfPowerGenerationAndExportWatts                int32    // 0x57-0x5a Sum of GridWatts and PVWatts (sometimes slightly inaccurate?)
-	UnknownBytes5                                     [21]byte // 0x5b-0x6f Fixed bytes?
-}
-
-// parseTimeSync unmarshals the time sync body.
-func parseTimeSync(cleartext []byte) (*OutboundTimeSync, error) {
-	if len(cleartext) != timeSyncLen {
-		return nil, fmt.Errorf("invalid cleartext length: %d", len(cleartext))
-	}
-	body := OutboundTimeSync{}
-	buf := bytes.NewBuffer(cleartext)
-	if err := binary.Read(buf, binary.BigEndian, &body); err != nil {
-		return nil, fmt.Errorf("couldn't read cleartext: %v", err)
-	}
-	return &body, nil
-}
 
 // handleTimeSyncPacket handles time sync packet envelope and ciphertext.
 func handleTimeSyncPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
-	envelope := OutboundEnvelopeTS{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
+	var timeSync OutboundTimeSyncPacket
+	err := timeSync.UnmarshalBinary(data)
+	if err != nil {
+		return fmt.Errorf("couldn't unmarshal time sync: %v", err)
 	}
-	model, ok := deviceIDToModel[envelope.DeviceID]
+	model, ok := deviceIDToModel[timeSync.DeviceID]
 	if !ok {
-		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
-	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
-	}
-	_, err = parseTimeSync(cleartext)
-	if err != nil {
-		log.Debug("couldn't parse time sync", slog.Any("cleartext", cleartext))
-		return fmt.Errorf("couldn't parse time sync: %v", err)
+		return fmt.Errorf("unknown device ID: %v", timeSync.DeviceID)
 	}
 	log.Debug("outbound time sync")
 	timeSyncPacketsTotal.With(prometheus.Labels{
 		"model":  model,
-		"serial": string(envelope.DeviceSerial[:]),
+		"serial": string(timeSync.DeviceSerial[:]),
 	}).Inc()
 	return nil
 }
 
-// parseMetrics unmarshals the metrics body.
-func parseMetrics(cleartext []byte) (*OutboundMetrics, error) {
-	if len(cleartext) != metricsLen {
-		return nil, fmt.Errorf("invalid cleartext length: %d", len(cleartext))
-	}
-	body := OutboundMetrics{}
-	buf := bytes.NewBuffer(cleartext)
-	if err := binary.Read(buf, binary.BigEndian, &body); err != nil {
-		return nil, fmt.Errorf("couldn't read cleartext: %v", err)
-	}
-	return &body, nil
-}
-
 // handleMetricsPacket handles metrics packet envelope and ciphertext.
 func handleMetricsPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
-) error {
-	envelope := OutboundEnvelopeTS{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
+) (*OutboundMetricsPacket, error) {
+	var metrics OutboundMetricsPacket
+	err := metrics.UnmarshalBinary(data)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal metrics: %v", err)
 	}
-	model, ok := deviceIDToModel[envelope.DeviceID]
+	model, ok := deviceIDToModel[metrics.DeviceID]
 	if !ok {
-		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
-	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
-	}
-	metrics, err := parseMetrics(cleartext)
-	if err != nil {
-		log.Debug("couldn't parse metrics", slog.Any("cleartext", cleartext))
-		return fmt.Errorf("couldn't parse metrics: %v", err)
+		return nil, fmt.Errorf("unknown device ID: %v", metrics.DeviceID)
 	}
 	log.Debug("outbound metrics")
 	labels := prometheus.Labels{
 		"model":  model,
-		"serial": string(envelope.DeviceSerial[:]),
+		"serial": string(metrics.DeviceSerial[:]),
 	}
 	// record metrics
 	powerGenerationWatts.With(labels).Set(
@@ -313,38 +189,32 @@ func handleMetricsPacket(
 	unknownInt12.With(labels).Set(float64(metrics.UnknownInt12))
 	// record debug metrics
 	metricsPacketsTotal.With(labels).Inc()
-	return nil
+	return &metrics, nil
 }
 
 // handleTimeSyncRespAckPacket handles time sync response ack packet envelope
 // and ciphertext.
 func handleTimeSyncRespAckPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
-	envelope := OutboundEnvelope{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
-	}
-	model, ok := deviceIDToModel[envelope.DeviceID]
-	if !ok {
-		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - outboundEnvelopeLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
+	var timeSyncRespAck OutboundTimeSyncRespAckPacket
+	err := timeSyncRespAck.UnmarshalBinary(data)
 	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
-		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
+		return fmt.Errorf("couldn't unmarshal time sync: %v", err)
 	}
-	if !slices.Equal(timeSyncRespAck, cleartext) {
+	model, ok := deviceIDToModel[timeSyncRespAck.DeviceID]
+	if !ok {
+		return fmt.Errorf("unknown device ID: %v", timeSyncRespAck.DeviceID)
+	}
+	if !slices.Equal(timeSyncRespAckData, timeSyncRespAck.Data[:]) {
 		log.Debug("unknown cleartext in timeSyncRespAck",
-			slog.Any("cleartext", cleartext))
+			slog.Any("cleartext", timeSyncRespAck.Data[:]))
 	}
+	log.Debug("outbound time sync response ack")
 	timeSyncAckPacketsTotal.With(prometheus.Labels{
 		"model":  model,
-		"serial": string(envelope.DeviceSerial[:]),
+		"serial": string(timeSyncRespAck.DeviceSerial[:]),
 	}).Inc()
 	return nil
 }
@@ -354,77 +224,94 @@ func handleTimeSyncRespAckPacket(
 // useful when occasionally the device sends a metrics packet with an unknown
 // packet type header.
 func handleUnknownOutboundPacket(
-	buf *bytes.Buffer,
-	headerLen uint32,
+	data []byte,
 	log *slog.Logger,
 ) error {
-	envelope := OutboundEnvelopeTS{}
-	if err := binary.Read(buf, binary.BigEndian, &envelope); err != nil {
-		return fmt.Errorf("couldn't read envelope: %v", err)
-	}
-	model, ok := deviceIDToModel[envelope.DeviceID]
-	if !ok {
-		return fmt.Errorf("unknown device ID: %v", envelope.DeviceID)
-	}
-	// -2 for packet type field in header and +1 for off-by-one = -1
-	ciphertext := buf.Next(int(headerLen - outboundEnvelopeTSLen - 1))
-	cleartext, err := decryptCiphertext(envelope.IV[:], ciphertext)
+	log.Info("unknown packet", slog.Any("data", data))
+	outboundUnknownPacketsTotal.Inc()
+	envelope := OutboundEnvelope{}
+	envData, bodyData := data[:binary.Size(envelope)], data[binary.Size(envelope):]
+	envBuf := bytes.NewBuffer(envData)
+	err := binary.Read(envBuf, binary.BigEndian, &envelope)
 	if err != nil {
-		log.Debug("couldn't decrypt ciphertext", slog.Any("ciphertext", ciphertext))
+		return fmt.Errorf("couldn't unmarshal envelope %T: %v", envelope, err)
+	}
+	cleartext, err := decryptCiphertext(envelope.IV[:], bodyData)
+	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
-	log.Debug("decrypted unknown packet", slog.Any("cleartext", cleartext))
-	metrics, err := parseMetrics(cleartext)
-	if err != nil {
-		log.Debug("couldn't parse metrics", slog.Any("cleartext", cleartext))
-		return fmt.Errorf("couldn't parse metrics: %v", err)
-	}
-	// log values
-	log.Debug("unknown metrics", slog.Any("metrics", metrics),
-		slog.Time("timestamp", envelope.Timestamp.Time()))
-	unknownPacketsTotal.With(prometheus.Labels{
-		"model":  model,
-		"serial": string(envelope.DeviceSerial[:]),
-	}).Inc()
+	log.Info("unknown packet cleartext", slog.Any("cleartext", cleartext))
 	return nil
 }
 
-// handleOutboundPacket is a handlePacketFunc for outbound packets.
-func handleOutboundPacket(
+// OutboundPacketHandler is a PacketHandler for outbound packets.
+type OutboundPacketHandler struct {
+	batsignal bool
+}
+
+// NewOutboundPacketHandler constructs an OutboundPacketHandler.
+func NewOutboundPacketHandler(batsignal bool) *OutboundPacketHandler {
+	return &OutboundPacketHandler{
+		batsignal: batsignal,
+	}
+}
+
+// HandlePacket implements the PacketHandler interface.
+func (h *OutboundPacketHandler) HandlePacket(
 	ctx context.Context,
 	log *slog.Logger,
 	data []byte,
-) error {
+) ([]byte, error) {
 	if err := validateCRC(data, outboundCRCByteOrder); err != nil {
-		return fmt.Errorf("couldn't validate CRC: %v", err)
+		return nil, fmt.Errorf("couldn't validate CRC: %v", err)
 	}
+	// slice up the header and body, and discard CRC bytes
 	header := OutboundHeader{}
-	buf := bytes.NewBuffer(data)
-	if err := binary.Read(buf, binary.BigEndian, &header); err != nil {
-		return fmt.Errorf("couldn't read header: %v", err)
+	headerData, bodyData :=
+		data[:binary.Size(header)], data[binary.Size(header):len(data)-2]
+	if err := header.UnmarshalBinary(headerData); err != nil {
+		return nil, fmt.Errorf("couldn't unmarshal header: %v", err)
+	}
+	// validate data size: -2 for packet type field and +1 for length off-by-one = -1
+	expectedBodySize := header.Length - 1
+	if len(bodyData) != int(expectedBodySize) {
+		return nil, fmt.Errorf("expected body size %d, got %d",
+			expectedBodySize, len(bodyData))
 	}
 	switch {
 	case slices.Equal(packetTypeTimeSync, header.PacketType[:]):
-		if err := handleTimeSyncPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle time sync packet: %v", err)
+		if err := handleTimeSyncPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle time sync packet: %v", err)
 		}
-		return nil
+		return nil, nil
 	case slices.Equal(packetTypeMetrics0, header.PacketType[:]):
 		fallthrough
 	case slices.Equal(packetTypeMetrics1, header.PacketType[:]):
-		if err := handleMetricsPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle metrics packet: %v", err)
+		metrics, err := handleMetricsPacket(bodyData, log)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't handle metrics packet: %v", err)
 		}
-		return nil
+		if h.batsignal {
+			newBodyData, err := batsignal(metrics)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't signal batman: %v", err)
+			}
+			var fullPacket []byte
+			fullPacket = append(headerData, newBodyData...)
+			fullPacket =
+				outboundCRCByteOrder.AppendUint16(fullPacket, goodwe.CRC(fullPacket))
+			return fullPacket, nil
+		}
+		return nil, nil
 	case slices.Equal(packetTypeTimeSyncRespAck, header.PacketType[:]):
-		if err := handleTimeSyncRespAckPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
+		if err := handleTimeSyncRespAckPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
 		}
-		return nil
+		return nil, nil
 	default:
-		if err := handleUnknownOutboundPacket(buf, header.Length, log); err != nil {
-			return fmt.Errorf("couldn't handle unknown packet: %v", err)
+		if err := handleUnknownOutboundPacket(bodyData, log); err != nil {
+			return nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		return fmt.Errorf("unknown packet type")
+		return nil, fmt.Errorf("unknown packet type")
 	}
 }
