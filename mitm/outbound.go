@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smlx/goodwe"
 )
 
 var (
@@ -295,7 +296,11 @@ func (h *OutboundPacketHandler) HandlePacket(
 			if err != nil {
 				return nil, fmt.Errorf("couldn't signal batman: %v", err)
 			}
-			return append(headerData, newBodyData...), nil
+			var fullPacket []byte
+			fullPacket = append(headerData, newBodyData...)
+			fullPacket =
+				outboundCRCByteOrder.AppendUint16(fullPacket, goodwe.CRC(fullPacket))
+			return fullPacket, nil
 		}
 		return nil, nil
 	case slices.Equal(packetTypeTimeSyncRespAck, header.PacketType[:]):

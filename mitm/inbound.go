@@ -26,6 +26,12 @@ var (
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
+	// metricsNackData is sent by the server when it receives data unsucessfully (e.g. bad CRC)
+	metricsNackData = []byte{
+		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	}
+	// prometheus metrics
 	inboundUnknownPacketsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "inbound_unknown_packets_total",
 		Help: "Count of outbound unknown packets.",
@@ -42,12 +48,15 @@ func handleMetricsAckPacket(
 	if err != nil {
 		return fmt.Errorf("couldn't unmarshal metrics ack: %v", err)
 	}
-	if !slices.Equal(metricsAckData, inboundMetricsAck.Data[:]) {
-		log.Debug("unknown cleartext in metrics ack",
+	switch {
+	case slices.Equal(inboundMetricsAck.Data[:], metricsAckData):
+		log.Debug("metrics ack")
+	case slices.Equal(inboundMetricsAck.Data[:], metricsNackData):
+		log.Warn("metrics nack. bad metrics CRC?")
+	default:
+		log.Warn("unknown cleartext in metrics ack",
 			slog.Any("cleartext", inboundMetricsAck.Data[:]))
-		return fmt.Errorf("unknown cleartext in metrics ack")
 	}
-	log.Debug("metrics ack")
 	return nil
 }
 
