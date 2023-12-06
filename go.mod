@@ -3,7 +3,7 @@ module github.com/smlx/goodwe
 go 1.21.4
 
 require (
-	github.com/alecthomas/assert/v2 v2.4.0
+	github.com/alecthomas/assert/v2 v2.4.1
 	github.com/alecthomas/kong v0.8.1
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/prometheus/client_golang v1.17.0
