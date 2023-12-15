@@ -112,21 +112,21 @@ func (h *InboundPacketHandler) HandlePacket(
 	ctx context.Context,
 	log *slog.Logger,
 	data []byte,
-) ([]byte, error) {
+) ([]byte, []byte, error) {
 	if err := validateCRC(data, inboundCRCByteOrder); err != nil {
-		return nil, fmt.Errorf("couldn't validate CRC: %v", err)
+		return nil, nil, fmt.Errorf("couldn't validate CRC: %v", err)
 	}
 	// slice up the header and body, and discard CRC bytes
 	header := InboundHeader{}
 	headerData, bodyData :=
 		data[:binary.Size(header)], data[binary.Size(header):len(data)-2]
 	if err := header.UnmarshalBinary(headerData); err != nil {
-		return nil, fmt.Errorf("couldn't unmarshal header: %v", err)
+		return nil, nil, fmt.Errorf("couldn't unmarshal header: %v", err)
 	}
 	// validate data size: -2 for packet type field and +1 for length off-by-one = -1
 	expectedBodySize := header.Length - 1
 	if len(bodyData) != int(expectedBodySize) {
-		return nil, fmt.Errorf("expected body size %d, got %d",
+		return nil, nil, fmt.Errorf("expected body size %d, got %d",
 			expectedBodySize, len(bodyData))
 	}
 	switch {
@@ -136,18 +136,18 @@ func (h *InboundPacketHandler) HandlePacket(
 		fallthrough
 	case slices.Equal(packetTypeMetricsAck2, header.PacketType[:]):
 		if err := handleMetricsAckPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle metrics ack packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle metrics ack packet: %v", err)
 		}
-		return nil, nil
+		return nil, nil, nil
 	case slices.Equal(packetTypeTimeSyncResp, header.PacketType[:]):
 		if err := handleTimeSyncRespPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle time sync response packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle time sync response packet: %v", err)
 		}
-		return nil, nil
+		return nil, nil, nil
 	default:
 		if err := handleUnknownInboundPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		return nil, fmt.Errorf("unknown packet type")
+		return nil, nil, fmt.Errorf("unknown packet type")
 	}
 }

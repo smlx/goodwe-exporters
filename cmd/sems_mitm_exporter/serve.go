@@ -20,7 +20,8 @@ const (
 
 // ServeCmd represents the `serve` command.
 type ServeCmd struct {
-	Batsignal bool `kong:"env='BATSIGNAL',help='Enable Batsignal mode (draws the bat-insignia on the SEMS portal graph)'"`
+	Batsignal   bool `kong:"env='BATSIGNAL',help='Enable Batsignal mode (draws the bat-insignia on the SEMS portal graph)'"`
+	Passthrough bool `kong:"env='PASSTHROUGH',help='Enable passthrough to SEMS Portal'"`
 }
 
 // Run the serve command.
@@ -59,7 +60,7 @@ func (cmd *ServeCmd) Run(log *slog.Logger) error {
 	})
 	// start mitm server
 	eg.Go(func() error {
-		return mitm.NewServer(cmd.Batsignal).Serve(ctx, log)
+		return mitm.NewServer(cmd.Batsignal, cmd.Passthrough).Serve(ctx, log)
 	})
 	return eg.Wait()
 }

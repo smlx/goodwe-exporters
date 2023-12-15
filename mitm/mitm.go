@@ -61,7 +61,14 @@ func (t *Timestamp) Time() time.Time {
 // PacketHandler is an interface implemented by both outbound and inbound
 // packet handlers.
 type PacketHandler interface {
-	HandlePacket(context.Context, *slog.Logger, []byte) ([]byte, error)
+	// HandlePacket returns three values:
+	//
+	// 	1. a synthesized response packet (used when PASSTHROUGH=false).
+	// 	2. a mutated data packet (used when BATSIGNAL=true).
+	// 	3. an error.
+	//
+	// The response packet and the data packet may
+	HandlePacket(context.Context, *slog.Logger, []byte) ([]byte, []byte, error)
 }
 
 // decryptCiphertext decrypts the given ciphertext using the fixed key.
@@ -134,7 +141,7 @@ func (s *Server) handleConn(
 	ph PacketHandler,
 ) error {
 	var reader = bufio.NewReader(in)
-	var data, newData []byte
+	var data, newData, synthResp []byte
 	for {
 		if ctx.Err() != nil {
 			return nil // context cancelled
@@ -187,7 +194,7 @@ func (s *Server) handleConn(
 					continue // don't forward invalid data
 				}
 			}
-			newData, err = ph.HandlePacket(ctx, log, data)
+			synthResp, newData, err = ph.HandlePacket(ctx, log, data)
 			if err != nil {
 				// not a fatal error, since maybe we just don't handle the
 				// packet correctly yet.
@@ -217,23 +224,33 @@ func (s *Server) handleConn(
 				continue // don't forward unrecognized packets
 			}
 		}
-		// forward traffic
-		_, err = out.Write(data)
-		if err != nil {
-			return fmt.Errorf("couldn't write out: %v", err)
+		if s.passthrough {
+			// forward traffic
+			_, err = out.Write(data)
+			if err != nil {
+				return fmt.Errorf("couldn't send data upstream: %v", err)
+			}
+		} else {
+			// send client with synthesized response
+			_, err = in.Write(synthResp)
+			if err != nil {
+				return fmt.Errorf("couldn't send response to client: %v", err)
+			}
 		}
 	}
 }
 
 // Server implements the MITM server.
 type Server struct {
-	batsignal bool
+	batsignal   bool
+	passthrough bool
 }
 
 // NewServer constructs a new Server.
-func NewServer(batsignal bool) *Server {
+func NewServer(batsignal, passthrough bool) *Server {
 	return &Server{
-		batsignal: batsignal,
+		batsignal:   batsignal,
+		passthrough: passthrough,
 	}
 }
 

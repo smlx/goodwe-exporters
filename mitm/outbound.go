@@ -261,57 +261,57 @@ func (h *OutboundPacketHandler) HandlePacket(
 	ctx context.Context,
 	log *slog.Logger,
 	data []byte,
-) ([]byte, error) {
+) ([]byte, []byte, error) {
 	if err := validateCRC(data, outboundCRCByteOrder); err != nil {
-		return nil, fmt.Errorf("couldn't validate CRC: %v", err)
+		return nil, nil, fmt.Errorf("couldn't validate CRC: %v", err)
 	}
 	// slice up the header and body, and discard CRC bytes
 	header := OutboundHeader{}
 	headerData, bodyData :=
 		data[:binary.Size(header)], data[binary.Size(header):len(data)-2]
 	if err := header.UnmarshalBinary(headerData); err != nil {
-		return nil, fmt.Errorf("couldn't unmarshal header: %v", err)
+		return nil, nil, fmt.Errorf("couldn't unmarshal header: %v", err)
 	}
 	// validate data size: -2 for packet type field and +1 for length off-by-one = -1
 	expectedBodySize := header.Length - 1
 	if len(bodyData) != int(expectedBodySize) {
-		return nil, fmt.Errorf("expected body size %d, got %d",
+		return nil, nil, fmt.Errorf("expected body size %d, got %d",
 			expectedBodySize, len(bodyData))
 	}
 	switch {
 	case slices.Equal(packetTypeTimeSync, header.PacketType[:]):
 		if err := handleTimeSyncPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle time sync packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle time sync packet: %v", err)
 		}
-		return nil, nil
+		return nil, nil, nil
 	case slices.Equal(packetTypeMetrics0, header.PacketType[:]):
 		fallthrough
 	case slices.Equal(packetTypeMetrics1, header.PacketType[:]):
 		metrics, err := handleMetricsPacket(bodyData, log)
 		if err != nil {
-			return nil, fmt.Errorf("couldn't handle metrics packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle metrics packet: %v", err)
 		}
 		if h.batsignal {
 			newBodyData, err := batsignal(metrics)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't signal batman: %v", err)
+				return nil, nil, fmt.Errorf("couldn't signal batman: %v", err)
 			}
 			var fullPacket []byte
 			fullPacket = append(headerData, newBodyData...)
 			fullPacket =
 				outboundCRCByteOrder.AppendUint16(fullPacket, goodwe.CRC(fullPacket))
-			return fullPacket, nil
+			return nil, fullPacket, nil
 		}
-		return nil, nil
+		return nil, nil, nil
 	case slices.Equal(packetTypeTimeSyncRespAck, header.PacketType[:]):
 		if err := handleTimeSyncRespAckPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
 		}
-		return nil, nil
+		return nil, nil, nil
 	default:
 		if err := handleUnknownOutboundPacket(bodyData, log); err != nil {
-			return nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
+			return nil, nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		return nil, fmt.Errorf("unknown packet type")
+		return nil, nil, fmt.Errorf("unknown packet type")
 	}
 }
