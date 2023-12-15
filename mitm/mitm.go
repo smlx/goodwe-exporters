@@ -35,17 +35,29 @@ var (
 	// packet frames start with these prefixes depending on direction
 	outboundPrefix = []byte("POSTGW")
 	inboundPrefix  = []byte("GW")
-
 	// fixed AES key
 	key = []byte{
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	}
-
 	// Inbound keepalive(?) occasionally sent by the server.
 	// Note that this is not encrypted.
 	keepAlive = []byte{0x01, 0x02}
+	// prometheus metrics labels
+	labelNames = []string{"device", "model", "serial"}
+	// known Device IDs mapped to device type and model
+	deviceInfo = map[[8]byte][2]string{
+		{0x39, 0x31, 0x30, 0x30, 0x30, 0x48, 0x4b, 0x55}: {
+			"meter", "HomeKit 1000 Smart Meter",
+		},
+		{0x35, 0x33, 0x30, 0x30, 0x30, 0x44, 0x53, 0x43}: {
+			"inverter", "GW3000-DNS-30",
+		},
+	}
 )
+
+// PacketType indicates the type of the packet.
+type PacketType [2]byte
 
 // Timestamp is a time representation.
 // TZ appears to be China Standard Time, AKA Beijing time (+08:00).

@@ -15,18 +15,23 @@ import (
 var (
 	// yes, this differs between inbound and outbound
 	inboundCRCByteOrder = binary.LittleEndian
-	// inbound packet types
-	packetTypeMetricsAck0  = []byte{0x03, 0x04}
-	packetTypeMetricsAck1  = []byte{0x03, 0x45}
-	packetTypeMetricsAck2  = []byte{0x03, 0x03}
-	packetTypeTimeSyncResp = []byte{0x01, 0x16}
+	// HK 1000 smart meter inbound packet types
+	meterMetricsAck0  = PacketType{0x03, 0x04}
+	meterMetricsAck1  = PacketType{0x03, 0x45}
+	meterMetricsAck2  = PacketType{0x03, 0x03}
+	meterTimeSyncResp = PacketType{0x01, 0x16}
+	// DNS G3 inbound packet types
+	inverterMetricsAck0  = PacketType{0x01, 0x04}
+	inverterMetricsAck1  = PacketType{0x01, 0x45}
+	inverterTimeSyncResp = PacketType{0x01, 0x03}
 	// protocol constants
 	// metricsAckData is sent by the server when it receives data sucessfully
 	metricsAckData = []byte{
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
-	// metricsNackData is sent by the server when it receives data unsucessfully (e.g. bad CRC)
+	// metricsNackData is sent by the server when it receives data unsucessfully
+	// (e.g. bad CRC)
 	metricsNackData = []byte{
 		0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -34,7 +39,7 @@ var (
 	// prometheus metrics
 	inboundUnknownPacketsTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "inbound_unknown_packets_total",
-		Help: "Count of outbound unknown packets.",
+		Help: "Count of inbound unknown packets.",
 	})
 )
 
@@ -43,19 +48,32 @@ func handleMetricsAckPacket(
 	data []byte,
 	log *slog.Logger,
 ) error {
-	var inboundMetricsAck InboundMetricsAckPacket
-	err := inboundMetricsAck.UnmarshalBinary(data)
+	var metricsAck InboundMetricsAckPacket
+	err := metricsAck.UnmarshalBinary(data)
 	if err != nil {
 		return fmt.Errorf("couldn't unmarshal metrics ack: %v", err)
 	}
+	devInfo, ok := deviceInfo[metricsAck.DeviceID]
+	if !ok {
+		return fmt.Errorf("unknown device ID: %v", metricsAck.DeviceID)
+	}
 	switch {
-	case slices.Equal(inboundMetricsAck.Data[:], metricsAckData):
-		log.Debug("metrics ack")
-	case slices.Equal(inboundMetricsAck.Data[:], metricsNackData):
-		log.Warn("metrics nack. bad metrics CRC?")
+	case slices.Equal(metricsAck.Data[:], metricsAckData):
+		log.Debug("metrics ack",
+			slog.String("device", devInfo[0]),
+			slog.String("model", devInfo[1]),
+			slog.String("serial", string(metricsAck.DeviceSerial[:])))
+	case slices.Equal(metricsAck.Data[:], metricsNackData):
+		log.Warn("metrics nack. bad metrics CRC?",
+			slog.String("device", devInfo[0]),
+			slog.String("model", devInfo[1]),
+			slog.String("serial", string(metricsAck.DeviceSerial[:])))
 	default:
 		log.Warn("unknown cleartext in metrics ack",
-			slog.Any("cleartext", inboundMetricsAck.Data[:]))
+			slog.Any("cleartext", metricsAck.Data[:]),
+			slog.String("device", devInfo[0]),
+			slog.String("model", devInfo[1]),
+			slog.String("serial", string(metricsAck.DeviceSerial[:])))
 	}
 	return nil
 }
@@ -123,25 +141,23 @@ func (h *InboundPacketHandler) HandlePacket(
 	if err := header.UnmarshalBinary(headerData); err != nil {
 		return nil, nil, fmt.Errorf("couldn't unmarshal header: %v", err)
 	}
-	// validate data size: -2 for packet type field and +1 for length off-by-one = -1
+	// validate size: -2 for packet type field and +1 for length off-by-one = -1
 	expectedBodySize := header.Length - 1
 	if len(bodyData) != int(expectedBodySize) {
 		return nil, nil, fmt.Errorf("expected body size %d, got %d",
 			expectedBodySize, len(bodyData))
 	}
-	switch {
-	case slices.Equal(packetTypeMetricsAck0, header.PacketType[:]):
-		fallthrough
-	case slices.Equal(packetTypeMetricsAck1, header.PacketType[:]):
-		fallthrough
-	case slices.Equal(packetTypeMetricsAck2, header.PacketType[:]):
+	switch header.PacketType {
+	case meterMetricsAck0, meterMetricsAck1, meterMetricsAck2,
+		inverterMetricsAck0, inverterMetricsAck1:
 		if err := handleMetricsAckPacket(bodyData, log); err != nil {
 			return nil, nil, fmt.Errorf("couldn't handle metrics ack packet: %v", err)
 		}
 		return nil, nil, nil
-	case slices.Equal(packetTypeTimeSyncResp, header.PacketType[:]):
+	case meterTimeSyncResp, inverterTimeSyncResp:
 		if err := handleTimeSyncRespPacket(bodyData, log); err != nil {
-			return nil, nil, fmt.Errorf("couldn't handle time sync response packet: %v", err)
+			return nil, nil,
+				fmt.Errorf("couldn't handle time sync response packet: %v", err)
 		}
 		return nil, nil, nil
 	default:

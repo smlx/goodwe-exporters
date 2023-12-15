@@ -83,7 +83,7 @@ func batsignalBottom(tf timeFunc) func() float64 {
 // packet, it mutates the metrics values of the data in order to draw the
 // Batman function on the SEMS portal plot.
 // On any kind of error, it returns the original data.
-func batsignal(metrics *OutboundMetricsPacket) ([]byte, error) {
+func batsignal(metrics *OutboundMeterMetricsPacket) ([]byte, error) {
 	metrics.PowerGenerationWatts = int32(1000 * batsignalTop(timeNow)())
 	metrics.PowerExportWatts = int32(1000 * batsignalBottom(timeNow)())
 	return metrics.MarshalBinary()
