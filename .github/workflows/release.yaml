@@ -3,25 +3,25 @@ on:
   push:
     branches:
     - main
+permissions: {}
 jobs:
-  tag:
+  release-tag:
     permissions:
+      # create tag
       contents: write
     runs-on: ubuntu-latest
     outputs:
       new-tag: ${{ steps.bump-tag.outputs.new }}
       new-tag-version: ${{ steps.bump-tag.outputs.new_tag_version }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         fetch-depth: 0
-    - name: Configure Git
+    - name: Configure git
       run: |
         git config --global user.name "$GITHUB_ACTOR"
         git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
-    - name: Install Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       with:
         go-version: stable
     - name: Install ccv
@@ -31,87 +31,43 @@ jobs:
     - name: Bump tag if necessary
       id: bump-tag
       run: |
-        if [ -z $(git tag -l $(ccv)) ]; then
-          git tag $(ccv)
+        if [ -z "$(git tag -l "$(ccv)")" ]; then
+          git tag "$(ccv)"
           git push --tags
-          echo "new=true" >> $GITHUB_OUTPUT
-          echo "new_tag_version=$(git tag --points-at HEAD)" >> $GITHUB_OUTPUT
+          echo "new=true" >> "$GITHUB_OUTPUT"
+          echo "new_tag_version=$(git tag --points-at HEAD)" >> "$GITHUB_OUTPUT"
         fi
-  release:
+  release-build:
     permissions:
+      # create release
       contents: write
-    needs: tag
-    if: needs.tag.outputs.new-tag == 'true'
+      # push docker images to regsitry
+      packages: write
+      # use OIDC token for signing
+      id-token: write
+    needs: release-tag
+    if: needs.release-tag.outputs.new-tag == 'true'
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         fetch-depth: 0
-    - name: Install Go
-      uses: actions/setup-go@v5
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       with:
         go-version: stable
+    - name: Login to GHCR
+      uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up environment
-      run: echo "GOVERSION=$(go version)" >> $GITHUB_ENV
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5
+      run: echo "GOVERSION=$(go version)" >> "$GITHUB_ENV"
+    - uses: sigstore/cosign-installer@9614fae9e5c5eddabb09f90a270fcb487c9f7149 # v3.3.0
+    - uses: anchore/sbom-action/download-syft@5ecf649a417b8ae17dc8383dc32d46c03f2312df # v0.15.1
+    - uses: goreleaser/goreleaser-action@7ec5c2b0c6cdda6e8bbb49444bc797dd33d74dd8 # v5.0.0
       with:
         version: latest
         args: release --clean
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Tar up binaries
-      run: tar -cvf dist.tar dist
-    - name: Upload binaries tar file
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist.tar
-        path: dist.tar
-  releaseimage:
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        binary:
-        - sems_mitm_exporter
-    needs:
-    - tag
-    - release
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Download binaries tar file
-      uses: actions/download-artifact@v4
-      with:
-        name: dist.tar
-    - name: Untar binaries
-      run: tar -xvf dist.tar
-    - name: Login to GHCR
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Docker metadata
-      # this id is namespaced per matrix run
-      id: docker_metadata
-      uses: docker/metadata-action@v5
-      with:
-        images: ghcr.io/${{ github.repository }}/${{ matrix.binary }}
-        tags: |
-          ${{ needs.tag.outputs.new-tag-version }}
-          latest
-    - name: Build and push ${{ matrix.binary }} container image
-      id: docker_build
-      uses: docker/build-push-action@v5
-      with:
-        push: true
-        tags: ${{ steps.docker_metadata.outputs.tags }}
-        labels: ${{ steps.docker_metadata.outputs.labels }}
-        file: deploy/docker/Dockerfile
-        context: dist/${{ matrix.binary }}_linux_amd64_v1
-        build-args: |
-          BINARY=${{ matrix.binary }}

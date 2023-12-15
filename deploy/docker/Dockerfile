@@ -1,5 +1,0 @@
-FROM alpine:3.18
-ARG BINARY
-COPY ${BINARY} /
-ENV BINARY=${BINARY}
-ENTRYPOINT ["sh", "-c", "exec /$BINARY"]

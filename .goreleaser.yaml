@@ -1,0 +1,65 @@
+builds:
+- main: ./cmd/sems_mitm_exporter
+  binary: sems_mitm_exporter
+  ldflags:
+  - >
+    -s -w
+    -X "main.commit={{.Commit}}"
+    -X "main.date={{.Date}}"
+    -X "main.goVersion={{.Env.GOVERSION}}"
+    -X "main.projectName={{.ProjectName}}"
+    -X "main.version={{.Version}}"
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - linux
+  goarch:
+  - amd64
+
+sboms:
+- artifacts: archive
+
+signs:
+- cmd: cosign
+  signature: "${artifact}.sig"
+  certificate: "${artifact}.pem"
+  args:
+  - "sign-blob"
+  - "--output-signature=${signature}"
+  - "--output-certificate=${certificate}"
+  - "${artifact}"
+  - "--yes"
+  artifacts: checksum
+
+dockers:
+- image_templates:
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-amd64"
+  use: buildx
+  dockerfile: deploy/docker/sems_mitm_exporter/Dockerfile
+  build_flag_templates:
+  - "--platform=linux/amd64"
+- image_templates:
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-arm64v8"
+  use: buildx
+  goarch: arm64
+  dockerfile: deploy/docker/sems_mitm_exporter/Dockerfile
+  build_flag_templates:
+  - "--platform=linux/arm64/v8"
+
+docker_manifests:
+- name_template: "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}"
+  image_templates:
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-amd64"
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-arm64v8"
+- name_template: "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:latest"
+  image_templates:
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-amd64"
+  - "ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:{{ .Version }}-arm64v8"
+
+docker_signs:
+- args:
+  - "sign"
+  - "${artifact}@${digest}"
+  - "--yes"
+  artifacts: all
+  output: true
