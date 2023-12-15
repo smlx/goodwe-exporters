@@ -1,7 +1,7 @@
 # local development targets
 
 .PHONY: test
-test: mod-tidy generate
+test: mod-tidy generate lint
 	go test -v ./...
 
 .PHONY: mod-tidy
@@ -15,3 +15,7 @@ generate: mod-tidy
 .PHONY: build
 build:
 	GOVERSION=$$(go version) goreleaser build  --clean --debug --snapshot
+
+.PHONY: lint
+lint:
+	golangci-lint run
