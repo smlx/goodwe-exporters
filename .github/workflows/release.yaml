@@ -64,7 +64,7 @@ jobs:
     - name: Tar up binaries
       run: tar -cvf dist.tar dist
     - name: Upload binaries tar file
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist.tar
         path: dist.tar
