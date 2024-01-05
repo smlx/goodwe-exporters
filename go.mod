@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kong v0.8.1
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/prometheus/client_golang v1.18.0
-	golang.org/x/sync v0.5.0
+	golang.org/x/sync v0.6.0
 )
 
 require (
