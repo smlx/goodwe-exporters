@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os/signal"
@@ -20,8 +21,8 @@ const (
 
 // ServeCmd represents the `serve` command.
 type ServeCmd struct {
-	Batsignal   bool `kong:"env='BATSIGNAL',help='Enable Batsignal mode (draws the bat-insignia on the SEMS portal graph)'"`
-	Passthrough bool `kong:"env='PASSTHROUGH',help='Enable passthrough to SEMS Portal'"`
+	Batsignal       bool `kong:"env='BATSIGNAL',help='Enable Batsignal mode (draws the bat-insignia on the SEMS portal graph)'"`
+	SEMSPassthrough bool `kong:"env='SEMS_PASSTHROUGH',default='true',help='Enable passthrough to SEMS Portal'"`
 }
 
 // Run the serve command.
@@ -59,8 +60,13 @@ func (cmd *ServeCmd) Run(log *slog.Logger) error {
 		return metricsSrv.Shutdown(timeoutCtx)
 	})
 	// start mitm server
-	eg.Go(func() error {
-		return mitm.NewServer(cmd.Batsignal, cmd.Passthrough).Serve(ctx, log)
-	})
+	if cmd.SEMSPassthrough {
+		eg.Go(func() error {
+			return mitm.NewServer(cmd.Batsignal).Serve(ctx, log)
+		})
+	} else {
+		// TODO SEMS Emulator: semsem.NewServer().Serve(ctx,log)
+		return fmt.Errorf("SEMS Emulator not yet implemented")
+	}
 	return eg.Wait()
 }

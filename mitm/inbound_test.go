@@ -80,7 +80,7 @@ func TestHandleInboundPacket(t *testing.T) {
 	ph := NewInboundPacketHandler()
 	for name, tc := range testCases {
 		t.Run(name, func(tt *testing.T) {
-			_, _, err := ph.HandlePacket(ctx, log, tc.input)
+			_, err := ph.HandlePacket(ctx, log, tc.input)
 			if tc.expectError {
 				assert.Error(tt, err, name)
 			} else {
@@ -214,7 +214,7 @@ func TestHandleInbound(t *testing.T) {
 				return err
 			})
 			// test the function
-			mitmSrv := NewServer(false, true)
+			mitmSrv := NewServer(false)
 			assert.NoError(tt, mitmSrv.handleConn(ctx, log, upstreamRead, clientWrite,
 				inboundPrefix, false, NewInboundPacketHandler()), name)
 			if err := eg.Wait(); err != nil {

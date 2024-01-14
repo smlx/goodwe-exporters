@@ -85,75 +85,75 @@ func (h *OutboundPacketHandler) HandlePacket(
 	ctx context.Context,
 	log *slog.Logger,
 	data []byte,
-) ([]byte, []byte, error) {
+) ([]byte, error) {
 	if err := validateCRC(data, outboundCRCByteOrder); err != nil {
-		return nil, nil, fmt.Errorf("couldn't validate CRC: %v", err)
+		return nil, fmt.Errorf("couldn't validate CRC: %v", err)
 	}
 	// slice up the header and body, and discard CRC bytes
 	header := OutboundHeader{}
 	headerData, bodyData :=
 		data[:binary.Size(header)], data[binary.Size(header):len(data)-2]
 	if err := header.UnmarshalBinary(headerData); err != nil {
-		return nil, nil, fmt.Errorf("couldn't unmarshal header: %v", err)
+		return nil, fmt.Errorf("couldn't unmarshal header: %v", err)
 	}
 	// validate size: -2 for packet type field and +1 for length off-by-one = -1
 	expectedBodySize := header.Length - 1
 	if len(bodyData) != int(expectedBodySize) {
-		return nil, nil, fmt.Errorf("expected body size %d, got %d",
+		return nil, fmt.Errorf("expected body size %d, got %d",
 			expectedBodySize, len(bodyData))
 	}
 	switch header.PacketType {
 	case meterTimeSync:
 		if err := handleMeterTimeSyncPacket(bodyData, log); err != nil {
-			return nil, nil,
+			return nil,
 				fmt.Errorf("couldn't handle meter time sync packet: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil
 	case meterMetrics0, meterMetrics1:
 		metrics, err := handleMeterMetricsPacket(bodyData, log)
 		if err != nil {
-			return nil, nil, fmt.Errorf("couldn't handle meter metrics packet: %v", err)
+			return nil, fmt.Errorf("couldn't handle meter metrics packet: %v", err)
 		}
 		if h.batsignal {
 			newBodyData, err := batsignal(metrics)
 			if err != nil {
-				return nil, nil, fmt.Errorf("couldn't signal batman: %v", err)
+				return nil, fmt.Errorf("couldn't signal batman: %v", err)
 			}
 			var fullPacket []byte
 			fullPacket = append(headerData, newBodyData...)
 			fullPacket =
 				outboundCRCByteOrder.AppendUint16(fullPacket, goodwe.CRC(fullPacket))
-			return nil, fullPacket, nil
+			return fullPacket, nil
 		}
-		return nil, nil, nil
+		return nil, nil
 	case meterTimeSyncRespAck, inverterTimeSyncRespAck:
 		if err := handleTimeSyncRespAckPacket(bodyData, log); err != nil {
-			return nil, nil,
+			return nil,
 				fmt.Errorf("couldn't handle time sync response ack packet: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil
 	case inverterMetrics0:
 		if err := handleInverterMetrics0Packet(bodyData, log); err != nil {
-			return nil, nil,
+			return nil,
 				fmt.Errorf("couldn't handle inverter metrics packet: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil
 	case inverterMetrics1:
 		if err := handleInverterMetrics1Packet(bodyData, log); err != nil {
-			return nil, nil,
+			return nil,
 				fmt.Errorf("couldn't handle inverter metrics packet: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil
 	case inverterTimeSync:
 		if err := handleInverterTimeSyncPacket(bodyData, log); err != nil {
-			return nil, nil,
+			return nil,
 				fmt.Errorf("couldn't handle inverter time sync packet: %v", err)
 		}
-		return nil, nil, nil
+		return nil, nil
 	default:
 		if err := handleUnknownOutboundPacket(bodyData, log); err != nil {
-			return nil, nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
+			return nil, fmt.Errorf("couldn't handle unknown packet: %v", err)
 		}
-		return nil, nil, fmt.Errorf("unknown packet type")
+		return nil, fmt.Errorf("unknown packet type")
 	}
 }

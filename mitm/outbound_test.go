@@ -127,7 +127,7 @@ func TestHandleOutboundPacket(t *testing.T) {
 	ph := NewOutboundPacketHandler(false)
 	for name, tc := range testCases {
 		t.Run(name, func(tt *testing.T) {
-			_, _, err := ph.HandlePacket(ctx, log, tc.input)
+			_, err := ph.HandlePacket(ctx, log, tc.input)
 			if tc.expectError {
 				assert.Error(tt, err, name)
 			} else {
@@ -247,7 +247,7 @@ func TestHandleOutbound(t *testing.T) {
 				return err
 			})
 			// test the function
-			mitmSrv := NewServer(false, true)
+			mitmSrv := NewServer(false)
 			assert.NoError(tt, mitmSrv.handleConn(ctx, log, clientRead, upstreamWrite,
 				outboundPrefix, true, NewOutboundPacketHandler(false)), name)
 			if err := eg.Wait(); err != nil {
