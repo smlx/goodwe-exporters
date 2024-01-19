@@ -1,5 +1,4 @@
-name: "CodeQL"
-
+name: codeQL
 on:
   push:
     branches:
@@ -7,26 +6,27 @@ on:
   pull_request:
     branches:
     - main
-
+permissions: {}
 jobs:
   analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
       security-events: write
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         language:
         - go
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version: stable
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@e5f05b81d5b6ff8cfa111c80c22c5fd02a384118 # v3.23.0
       with:
         languages: ${{ matrix.language }}
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@e5f05b81d5b6ff8cfa111c80c22c5fd02a384118 # v3.23.0

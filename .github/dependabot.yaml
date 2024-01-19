@@ -1,10 +1,10 @@
 version: 2
 updates:
-- package-ecosystem: docker
+- package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
-- package-ecosystem: github-actions
+    interval: weekly
+- package-ecosystem: docker
   directory: /
   schedule:
     interval: daily
