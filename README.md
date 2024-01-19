@@ -26,9 +26,9 @@ Currently hardware support in the SEMS MITM Exporter is limited to the equipment
 
 PRs welcome if you want to add support for your device.
 
-[!NOTE]
-I don't have a battery, so the exporter and metrics naming reflects that.
-Open issues to discuss how to improve this if you have a battery and don't like the metric naming.
+> [!NOTE]
+> I don't have a battery, so the exporter and metrics naming reflects that.
+> Open issues to discuss how to improve this if you have a battery and don't like the metric naming.
 
 ### How to get it
 
@@ -52,11 +52,11 @@ Detailed instructions for supported hardware is a WIP.
 
 ## Metrics exported
 
-[!NOTE]
-Only the useful metrics are listed here. Unlisted metrics which are also exported include:
-
-* Device metrics which aren't particularly useful (e.g. other values summed together).
-* Values which are unknown due to uncertainties when reverse engineering the packet structure (`*_unknown_*` variables). If you figure out what these are, please open an issue/PR.
+> [!NOTE]
+> Only the useful metrics are listed here. Unlisted metrics which are also exported include:
+> 
+> * Device metrics which aren't particularly useful (e.g. other values summed together).
+> * Values which are unknown due to uncertainties when reverse engineering the packet structure (`*_unknown_*` variables). If you figure out what these are, please open an issue/PR.
 
 Except where noted, all metrics are labelled with:
 
