@@ -1,31 +1,40 @@
-name: Lint
-on: pull_request
+name: lint
+on:
+  pull_request:
+    branches:
+    - main
+permissions: {}
 jobs:
-  golangci-lint:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-    - name: Install Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3
-      with:
-        args: --timeout=180s
-  commitlint:
+  lint-go:
     permissions:
-      pull-requests: read
       contents: read
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+      with:
+        go-version: stable
+    - uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+      with:
+        args: --timeout=180s
+  lint-commits:
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         fetch-depth: 0
-    - name: Lint commit messages
-      uses: wagoid/commitlint-github-action@v5
+    - uses: wagoid/commitlint-github-action@5ce82f5d814d4010519d15f0552aec4f17a1e1fe # v5.4.5
       with:
         configFile: .github/commitlint.config.js
+  lint-actions:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+    - uses: docker://rhysd/actionlint:latest@sha256:2eb91a78b5a19140be099c7b4262d298c2567f2a9f27e10ed2a4323c5bcface8
+      with:
+        args: -color

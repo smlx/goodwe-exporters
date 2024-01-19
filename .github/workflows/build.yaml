@@ -1,4 +1,4 @@
-name: Build
+name: build
 on:
   pull_request:
     branches:
@@ -8,7 +8,6 @@ jobs:
   build-snapshot:
     permissions:
       contents: read
-      # push PR image
       packages: write
     runs-on: ubuntu-latest
     strategy:
@@ -37,10 +36,10 @@ jobs:
     - name: Get Docker metadata
       if: github.actor != 'dependabot[bot]'
       id: docker_metadata
-      uses: docker/metadata-action@31cebacef4805868f9ce9a0cb03ee36c32df2ac4 # v5.3.0
+      uses: docker/metadata-action@dbef88086f6cef02e264edb7dbf63250c17cef6c # v5.5.0
       with:
         images: ghcr.io/${{ github.repository }}/${{ matrix.binary }}
-    - run: echo "REPO_NAME=$(basename ${{ github.repository }})" >> "$GITHUB_ENV"
+    - run: echo "GITHUB_REPOSITORY_NAME=$(basename ${{ github.repository }})" >> "$GITHUB_ENV"
     - name: Build and push ${{ matrix.binary }} container image
       if: github.actor != 'dependabot[bot]'
       uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0
@@ -48,5 +47,6 @@ jobs:
         push: true
         tags: ${{ steps.docker_metadata.outputs.tags }}
         labels: ${{ steps.docker_metadata.outputs.labels }}
-        file: deploy/docker/${{ matrix.binary }}/Dockerfile
-        context: dist/${{ env.REPO_NAME }}_linux_amd64_v1
+        file: Dockerfile
+        build-args: BINARY=${{ matrix.binary }}
+        context: dist/${{ matrix.binary }}_linux_amd64_v1

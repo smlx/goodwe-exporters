@@ -1,0 +1,17 @@
+# https://github.com/cncf/foundation/blob/main/allowed-third-party-license-policy.md
+allow-licenses:
+- 'Apache-2.0'
+- 'BSD-2-Clause'
+- 'BSD-2-Clause-FreeBSD'
+- 'BSD-3-Clause'
+- 'ISC'
+- 'MIT'
+- 'PostgreSQL'
+- 'Python-2.0'
+- 'X11'
+- 'Zlib'
+
+# this action is GPL-3 but it is only used in CI
+# https://github.com/actions/dependency-review-action/issues/530#issuecomment-1638291806
+allow-dependencies-licenses: >
+  pkg:githubactions/vladopajic/go-test-coverage@bcd064e5ceef1ccec5441519eb054263b6a44787
