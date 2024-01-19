@@ -9,7 +9,7 @@ builds:
     -X "main.date={{.Date}}"
     -X "main.goVersion={{.Env.GOVERSION}}"
     -X "main.projectName={{.ProjectName}}"
-    -X "main.version={{.Version}}"
+    -X "main.version=v{{.Version}}"
   env:
   - CGO_ENABLED=0
   goos:
@@ -40,7 +40,7 @@ dockers:
 - ids:
   - sems_mitm_exporter
   image_templates:
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-amd64"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-amd64"
   use: buildx
   build_flag_templates:
   - "--build-arg=BINARY=sems_mitm_exporter"
@@ -48,7 +48,7 @@ dockers:
 - ids:
   - sems_mitm_exporter
   image_templates:
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-arm64v8"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-arm64v8"
   use: buildx
   goarch: arm64
   build_flag_templates:
@@ -56,14 +56,14 @@ dockers:
   - "--platform=linux/arm64/v8"
 
 docker_manifests:
-- name_template: "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}"
+- name_template: "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}"
   image_templates:
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-amd64"
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-arm64v8"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-amd64"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-arm64v8"
 - name_template: "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:latest"
   image_templates:
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-amd64"
-  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:{{ .Version }}-arm64v8"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-amd64"
+  - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-arm64v8"
 
 docker_signs:
 - args:
