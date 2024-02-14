@@ -58,7 +58,7 @@ At a high level:
     * Point the DNS of `tcp.goodwe-power.com` to the IP of the exporter; or
     * Reconfigure your hardware to connect to the IP of the exporter.
 1. Configure Prometheus to scrape from the exporter on port 14028.
-1. Grab the [Grafana dashboard](https://grafana.com/grafana/dashboards/20477-household-power/) and visualise your metrics.
+1. Grab the [Grafana dashboard](https://grafana.com/grafana/dashboards/20479-household-power/) and visualise your metrics.
 
 Detailed instructions for supported hardware is a WIP.
 For command-line flags and environment variables run the exporter with the `--help` flag.
