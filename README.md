@@ -7,7 +7,19 @@ This repository contains Prometheus metrics exporters for Goodwe solar energy de
 This is a Prometheus exporter for Goodwe devices which integrate with the cloud-hosted Smart Energy Managment System (SEMS) portal.
 It works by implementing a [MITM attack](https://en.wikipedia.org/wiki/Man-in-the-middle_attack) on the SEMS portal protocol, hence the name.
 
-## Motivation / Features
+### Why does this exist?
+
+#### Short version
+
+Homekit 1000 does not support Modbus for metrics querying, so the only way to get data out of it appears to be from the SEMS Portal traffic.
+
+Other Goodwe hardware probably supports Modbus, which may be more convenient for scraping metrics.
+
+#### Long version
+
+See the [blog post](https://smlx.dev/posts/goodwe-sems-protocol-teardown/).
+
+### Features
 
 The SEMS MITM exporter has the following advantages over just using the SEMS Portal:
 
@@ -15,7 +27,7 @@ The SEMS MITM exporter has the following advantages over just using the SEMS Por
 * Allows you to store your data in a Prometheus instance that you control.
 * Visualise your data using standard tools like Grafana.
 * Drops unrecognised incoming packets to block e.g. firmware upgrades.
-* Summons Batman to the SEMS Portal (optional).
+* Summons Batman to the SEMS Portal (optional, set env var `BATSIGNAL=true`).
 
 ### Hardware support
 
@@ -46,11 +58,31 @@ At a high level:
     * Point the DNS of `tcp.goodwe-power.com` to the IP of the exporter; or
     * Reconfigure your hardware to connect to the IP of the exporter.
 1. Configure Prometheus to scrape from the exporter on port 14028.
-1. Grab the Grafana dashboard and visualise your metrics.
+1. Grab the [Grafana dashboard](https://grafana.com/grafana/dashboards/20477-household-power/) and visualise your metrics.
 
 Detailed instructions for supported hardware is a WIP.
+For command-line flags and environment variables run the exporter with the `--help` flag.
 
-## Metrics exported
+#### Example: docker compose
+
+Here's how I run it locally using docker compose:
+
+```yaml
+---
+version: '3.8'
+services:
+  sems_mitm_exporter:
+    # avoid copying host search option
+    dns_search: .
+    image: ghcr.io/smlx/goodwe-exporters/sems_mitm_exporter:latest
+    ports:
+    - "20001:20001"
+    restart: unless-stopped
+    environment:
+    - DEBUG=true
+```
+
+### Metrics exported
 
 > [!NOTE]
 > Only the useful metrics are listed here. Unlisted metrics which are also exported include:
@@ -64,7 +96,7 @@ Except where noted, all metrics are labelled with:
 * `model`
 * `serial`
 
-### Homekit 1000
+#### Homekit 1000
 
 | Metric                                         | Description                                           |
 | ---                                            | ---                                                   |
@@ -76,7 +108,7 @@ Except where noted, all metrics are labelled with:
 | `batsignal_top`                                | Top of the batsignal. (only when `BATSIGNAL=true`)    |
 | `batsignal_bottom`                             | Bottom of the batsignal. (only when `BATSIGNAL=true`) |
 
-### DNS G3
+#### DNS G3
 
 | Metric                                              | Description                                       |
 | ---                                                 | ---                                               |
@@ -92,7 +124,7 @@ Except where noted, all metrics are labelled with:
 | `inverter_uptime_hours_total`                       | Inverter total operation time.                    |
 | `inverter_rssi_percent`                             | Inverter WLAN received signal strength indicator. |
 
-### Exporter internals
+#### Exporter internals
 
 | Metric                              | Description                                          |
 | ---                                 | ---                                                  |
@@ -103,15 +135,3 @@ Except where noted, all metrics are labelled with:
 | `outbound_unknown_packets_total`    | Count of outbound unknown packets. (no labels)       |
 | `inverter_time_sync_packets_total`  | Count of outbound time sync packets.                 |
 | `inverter_metrics_packets_total`    | Count of outbound metrics packets.                   |
-
-## Why does this exist?
-
-### Short version
-
-Homekit 1000 does not support Modbus for metrics querying, so the only way to get data out of it appears to be from the SEMS Portal traffic.
-
-Other Goodwe hardware probably supports Modbus, which may be more convenient for scraping metrics.
-
-### Long version
-
-See the blog post.
