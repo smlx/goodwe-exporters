@@ -120,7 +120,8 @@ func (h *OutboundPacketHandler) HandlePacket(
 				return nil, fmt.Errorf("couldn't signal batman: %v", err)
 			}
 			var fullPacket []byte
-			fullPacket = append(headerData, newBodyData...)
+			fullPacket = append(fullPacket, headerData...)
+			fullPacket = append(fullPacket, newBodyData...)
 			fullPacket =
 				outboundCRCByteOrder.AppendUint16(fullPacket, goodwe.CRC(fullPacket))
 			return fullPacket, nil
