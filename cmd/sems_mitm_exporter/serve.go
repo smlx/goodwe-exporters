@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	metricsPort        = ":14028"
-	metricsReadTimeout = 2 * time.Second
+	metricsPort            = ":14028"
+	metricsReadTimeout     = 2 * time.Second
+	metricsShutdownTimeout = 2 * time.Second
 )
 
 // ServeCmd represents the `serve` command.
@@ -25,14 +26,7 @@ type ServeCmd struct {
 	SEMSPassthrough bool `kong:"env='SEMS_PASSTHROUGH',default='true',help='Enable passthrough to SEMS Portal'"`
 }
 
-// Run the serve command.
-func (cmd *ServeCmd) Run(log *slog.Logger) error {
-	// handle signals
-	ctx, stop := signal.NotifyContext(
-		context.Background(),
-		syscall.SIGTERM,
-		syscall.SIGINT)
-	defer stop()
+func serveMetrics(ctx context.Context, eg *errgroup.Group) {
 	// configure metrics server
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
@@ -42,9 +36,6 @@ func (cmd *ServeCmd) Run(log *slog.Logger) error {
 		WriteTimeout: metricsReadTimeout,
 		Handler:      mux,
 	}
-	// set up multithreading
-	var eg *errgroup.Group
-	eg, ctx = errgroup.WithContext(ctx)
 	// start metrics server
 	eg.Go(func() error {
 		if err := metricsSrv.ListenAndServe(); err != http.ErrServerClosed {
@@ -55,10 +46,25 @@ func (cmd *ServeCmd) Run(log *slog.Logger) error {
 	// start metrics server shutdown handler for graceful shutdown
 	eg.Go(func() error {
 		<-ctx.Done()
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		timeoutCtx, cancel :=
+			context.WithTimeout(context.Background(), metricsShutdownTimeout)
 		defer cancel()
 		return metricsSrv.Shutdown(timeoutCtx)
 	})
+}
+
+// Run the serve command.
+func (cmd *ServeCmd) Run(log *slog.Logger) error {
+	// handle signals
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGTERM,
+		syscall.SIGINT)
+	defer stop()
+	// set up multithreading
+	eg, ctx := errgroup.WithContext(ctx)
+	// start metrics server
+	serveMetrics(ctx, eg)
 	// start mitm server
 	if cmd.SEMSPassthrough {
 		eg.Go(func() error {
