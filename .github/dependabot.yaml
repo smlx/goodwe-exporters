@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: weekly
   groups:
-    all:
+    github-actions:
       patterns:
       - "*"
 - package-ecosystem: docker
@@ -13,7 +13,7 @@ updates:
   schedule:
     interval: daily
   groups:
-    all:
+    docker:
       patterns:
       - "*"
 - package-ecosystem: gomod
@@ -21,6 +21,6 @@ updates:
   schedule:
     interval: daily
   groups:
-    all:
+    gomod:
       patterns:
       - "*"
