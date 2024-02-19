@@ -19,7 +19,7 @@ build:
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	golangci-lint run --enable gocritic
 
 .PHONY: fuzz
 fuzz: mod-tidy generate

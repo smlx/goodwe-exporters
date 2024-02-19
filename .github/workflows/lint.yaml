@@ -16,7 +16,7 @@ jobs:
         go-version: stable
     - uses: golangci/golangci-lint-action@3cfe3a4abbb849e10058ce4af15d205b6da42804 # v4.0.0
       with:
-        args: --timeout=180s
+        args: --timeout=180s --enable gocritic
   lint-commits:
     permissions:
       contents: read
