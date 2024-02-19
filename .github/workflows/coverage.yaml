@@ -20,7 +20,7 @@ jobs:
         # remove mocks from coverage calculation
         grep -Ev 'mock_|_enumer.go' cover.out.raw > cover.out
     - name: Generage coverage badge
-      uses: vladopajic/go-test-coverage@bcd064e5ceef1ccec5441519eb054263b6a44787 # v2.8.2
+      uses: vladopajic/go-test-coverage@97ecc524075d8ece0e1a406edec1c191e2dd3277 # v2.8.3
       with:
         profile: cover.out
         local-prefix: github.com/smlx/goodwe-exporters
