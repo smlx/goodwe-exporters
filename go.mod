@@ -3,8 +3,8 @@ module github.com/smlx/goodwe
 go 1.21.4
 
 require (
-	github.com/alecthomas/assert/v2 v2.6.0
-	github.com/alecthomas/kong v0.8.1
+	github.com/alecthomas/assert/v2 v2.7.0
+	github.com/alecthomas/kong v0.9.0
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/prometheus/client_golang v1.19.0
 	golang.org/x/sync v0.6.0
