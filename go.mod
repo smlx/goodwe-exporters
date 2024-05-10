@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/assert/v2 v2.9.0
 	github.com/alecthomas/kong v0.9.0
 	github.com/lithammer/shortuuid/v4 v4.0.0
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	golang.org/x/sync v0.7.0
 )
 
@@ -19,6 +19,6 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.48.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	google.golang.org/protobuf v1.32.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
 )
