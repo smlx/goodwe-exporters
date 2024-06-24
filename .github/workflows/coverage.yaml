@@ -10,8 +10,8 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-    - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+    - uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
       with:
         go-version: stable
     - name: Calculate coverage
@@ -20,7 +20,7 @@ jobs:
         # remove mocks from coverage calculation
         grep -Ev 'mock_|_enumer.go' cover.out.raw > cover.out
     - name: Generage coverage badge
-      uses: vladopajic/go-test-coverage@97ecc524075d8ece0e1a406edec1c191e2dd3277 # v2.8.3
+      uses: vladopajic/go-test-coverage@1079cd4e58dda229c04ffdb6324fc3756b8542ff # v2.10.1
       with:
         profile: cover.out
         local-prefix: github.com/smlx/goodwe-exporters
