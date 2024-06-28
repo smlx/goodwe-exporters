@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"runtime"
 )
 
 // These variables are set by GoReleaser during the build.
 var (
 	commit      string
 	date        string
-	goVersion   string
 	projectName string
 	version     string
 )
@@ -31,7 +31,7 @@ func (*VersionCmd) Run() error {
 			version,
 			commit,
 			date,
-			goVersion,
+			runtime.Version(),
 		})
 	if err != nil {
 		return err
