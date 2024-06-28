@@ -1,3 +1,4 @@
+version: 2
 builds:
 - id: sems_mitm_exporter
   binary: sems_mitm_exporter
@@ -7,7 +8,6 @@ builds:
     -s -w
     -X "main.commit={{.Commit}}"
     -X "main.date={{.Date}}"
-    -X "main.goVersion={{.Env.GOVERSION}}"
     -X "main.projectName={{.ProjectName}}"
     -X "main.version=v{{.Version}}"
   env:
@@ -20,21 +20,6 @@ builds:
 
 changelog:
   use: github-native
-
-sboms:
-- artifacts: archive
-
-signs:
-- cmd: cosign
-  signature: "${artifact}.sig"
-  certificate: "${artifact}.pem"
-  args:
-  - "sign-blob"
-  - "--output-signature=${signature}"
-  - "--output-certificate=${certificate}"
-  - "${artifact}"
-  - "--yes"
-  artifacts: checksum
 
 dockers:
 - ids:
@@ -65,10 +50,7 @@ docker_manifests:
   - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-amd64"
   - "ghcr.io/{{ .Env.GITHUB_REPOSITORY }}/sems_mitm_exporter:v{{ .Version }}-arm64v8"
 
-docker_signs:
-- args:
-  - "sign"
-  - "${artifact}@${digest}"
-  - "--yes"
-  artifacts: all
-  output: true
+release:
+  extra_files:
+  - glob: "{{ .Env.GITHUB_SBOM_PATH }}"
+    name_template: "{{ .ProjectName }}.v{{ .Version }}.sbom.spdx.json"
