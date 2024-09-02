@@ -62,7 +62,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_SBOM_PATH: ./sbom.spdx.json
     # attest archives
-    - uses: actions/attest-build-provenance@210c1913531870065f03ce1f9440dd87bc0938cd # v1.4.0
+    - uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
       with:
         subject-path: "dist/*.tar.gz"
     # parse artifacts to the format required for image attestation
@@ -73,7 +73,7 @@ jobs:
       env:
         ARTIFACTS: ${{steps.goreleaser.outputs.artifacts}}
     # attest images
-    - uses: actions/attest-build-provenance@210c1913531870065f03ce1f9440dd87bc0938cd # v1.4.0
+    - uses: actions/attest-build-provenance@6149ea5740be74af77f260b9db67e633f6b0a9a1 # v1.4.2
       with:
         subject-digest: ${{steps.image_metadata_sems_mitm_exporter.outputs.digest}}
         subject-name: ${{steps.image_metadata_sems_mitm_exporter.outputs.name}}
