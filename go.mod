@@ -4,7 +4,7 @@ go 1.21.4
 
 require (
 	github.com/alecthomas/assert/v2 v2.10.0
-	github.com/alecthomas/kong v0.9.0
+	github.com/alecthomas/kong v1.2.1
 	github.com/lithammer/shortuuid/v4 v4.0.0
 	github.com/prometheus/client_golang v1.20.2
 	golang.org/x/sync v0.8.0
