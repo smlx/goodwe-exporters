@@ -21,7 +21,7 @@ jobs:
     - uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
       with:
         go-version: stable
-    - uses: goreleaser/goreleaser-action@286f3b13b1b49da4ac219696163fb8c1c93e1200 # v6.0.0
+    - uses: goreleaser/goreleaser-action@9ed2f89a662bf1735a48bc8557fd212fa902bebf # v6.1.0
       id: goreleaser
       with:
         version: latest
@@ -36,13 +36,13 @@ jobs:
     - name: Get Docker metadata
       if: github.actor != 'dependabot[bot]'
       id: docker_metadata
-      uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+      uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5.6.1
       with:
         images: ghcr.io/${{ github.repository }}/${{ matrix.binary }}
     - run: echo "GITHUB_REPOSITORY_NAME=$(basename ${{ github.repository }})" >> "$GITHUB_ENV"
     - name: Build and push ${{ matrix.binary }} container image
       if: github.actor != 'dependabot[bot]'
-      uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+      uses: docker/build-push-action@48aba3b46d1b1fec4febb7c5d0c644b249a11355 # v6.10.0
       with:
         push: true
         tags: ${{ steps.docker_metadata.outputs.tags }}
