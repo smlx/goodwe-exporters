@@ -4,10 +4,10 @@ go 1.21.4
 
 require (
 	github.com/alecthomas/assert/v2 v2.11.0
-	github.com/alecthomas/kong v1.5.0
-	github.com/lithammer/shortuuid/v4 v4.1.0
+	github.com/alecthomas/kong v1.6.0
+	github.com/lithammer/shortuuid/v4 v4.2.0
 	github.com/prometheus/client_golang v1.20.5
-	golang.org/x/sync v0.9.0
+	golang.org/x/sync v0.10.0
 )
 
 require (
