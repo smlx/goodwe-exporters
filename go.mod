@@ -1,6 +1,7 @@
 module github.com/smlx/goodwe
 
-go 1.21.4
+go 1.23.0
+
 toolchain go1.24.1
 
 require (
