@@ -56,7 +56,7 @@ func (p *InboundMetricsAckPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.InboundEnvelope, err)
 	}
-	cleartext, err := decryptCiphertext(p.InboundEnvelope.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -94,7 +94,7 @@ func (p *InboundTimeSyncRespPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.InboundEnvelope, err)
 	}
-	cleartext, err := decryptCiphertext(p.InboundEnvelope.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}

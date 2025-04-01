@@ -86,7 +86,7 @@ func (p *OutboundMeterMetricsPacket) MarshalBinary() ([]byte, error) {
 		return nil, fmt.Errorf("couldn't marshal %T: %v", p.OutboundMeterMetrics, err)
 	}
 	// encrypt metrics
-	ciphertext, err := encryptCleartext(p.OutboundEnvelopeTS.IV[:],
+	ciphertext, err := encryptCleartext(p.IV[:],
 		cleartextBuf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't encrypt metrics: %v", err)
@@ -105,7 +105,7 @@ func (p *OutboundMeterMetricsPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelopeTS, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelopeTS.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -146,7 +146,7 @@ func (p *OutboundMeterTimeSyncPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelopeTS, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelopeTS.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -189,7 +189,7 @@ func (p *OutboundTimeSyncRespAckPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelope, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelope.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -363,7 +363,7 @@ func (p *OutboundInverterMetrics0Packet) MarshalBinary() ([]byte, error) {
 			fmt.Errorf("couldn't marshal %T: %v", p.OutboundInverterMetrics0, err)
 	}
 	// encrypt metrics
-	ciphertext, err := encryptCleartext(p.OutboundEnvelopeTS.IV[:],
+	ciphertext, err := encryptCleartext(p.IV[:],
 		cleartextBuf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't encrypt metrics: %v", err)
@@ -382,7 +382,7 @@ func (p *OutboundInverterMetrics0Packet) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelopeTS, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelopeTS.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -465,7 +465,7 @@ func (p *OutboundInverterMetrics1Packet) MarshalBinary() ([]byte, error) {
 			fmt.Errorf("couldn't marshal %T: %v", p.OutboundInverterMetrics1, err)
 	}
 	// encrypt metrics
-	ciphertext, err := encryptCleartext(p.OutboundEnvelopeTS.IV[:],
+	ciphertext, err := encryptCleartext(p.IV[:],
 		cleartextBuf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't encrypt metrics: %v", err)
@@ -484,7 +484,7 @@ func (p *OutboundInverterMetrics1Packet) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelopeTS, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelopeTS.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}
@@ -718,7 +718,7 @@ func (p *OutboundInverterTimeSyncPacket) MarshalBinary() ([]byte, error) {
 			fmt.Errorf("couldn't marshal %T: %v", p.OutboundInverterTimeSync, err)
 	}
 	// encrypt metrics
-	ciphertext, err := encryptCleartext(p.OutboundEnvelopeTS.IV[:],
+	ciphertext, err := encryptCleartext(p.IV[:],
 		cleartextBuf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("couldn't encrypt metrics: %v", err)
@@ -737,7 +737,7 @@ func (p *OutboundInverterTimeSyncPacket) UnmarshalBinary(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read unmarshal %T: %v", p.OutboundEnvelopeTS, err)
 	}
-	cleartext, err := decryptCiphertext(p.OutboundEnvelopeTS.IV[:], bodyData)
+	cleartext, err := decryptCiphertext(p.IV[:], bodyData)
 	if err != nil {
 		return fmt.Errorf("couldn't decrypt ciphertext: %v", err)
 	}

@@ -300,7 +300,7 @@ func (s *Server) Serve(ctx context.Context, log *slog.Logger) error {
 			log.Error("couldn't dial upstream",
 				slog.String("upstreamAddr", upstreamAddr.String()),
 				slog.Any("error", err))
-			conn.Close()
+			conn.Close() // nolint: errcheck
 			continue
 		}
 		connLog := log.With(slog.Any("connID", shortuuid.New()))
@@ -311,8 +311,8 @@ func (s *Server) Serve(ctx context.Context, log *slog.Logger) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer conn.Close()
-			defer upstream.Close()
+			defer conn.Close()     // nolint: errcheck
+			defer upstream.Close() // nolint: errcheck
 			defer cancel()
 			outboundLog := connLog.With(slog.String("direction", "outbound"))
 			err := s.handleConn(connCtx, outboundLog, conn, upstream, outboundPrefix,
@@ -325,8 +325,8 @@ func (s *Server) Serve(ctx context.Context, log *slog.Logger) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer conn.Close()
-			defer upstream.Close()
+			defer conn.Close()     // nolint: errcheck
+			defer upstream.Close() // nolint: errcheck
 			defer cancel()
 			inboundLog := connLog.With(slog.String("direction", "inbound"))
 			err := s.handleConn(connCtx, inboundLog, upstream, conn, inboundPrefix,
