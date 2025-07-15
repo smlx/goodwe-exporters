@@ -227,7 +227,7 @@ func handleInverterMetrics0Packet(
 	var metrics OutboundInverterMetrics0Packet
 	err := metrics.UnmarshalBinary(data)
 	if err != nil {
-		return fmt.Errorf("couldn't unmarshal metrics: %v", err)
+		return fmt.Errorf("couldn't unmarshal metrics 0: %v", err)
 	}
 	di, ok := deviceInfo[metrics.DeviceID]
 	if !ok {
@@ -330,7 +330,7 @@ func handleInverterMetrics1Packet(
 	var metrics OutboundInverterMetrics1Packet
 	err := metrics.UnmarshalBinary(data)
 	if err != nil {
-		return fmt.Errorf("couldn't unmarshal metrics: %v", err)
+		return fmt.Errorf("couldn't unmarshal metrics 1: %v", err)
 	}
 	di, ok := deviceInfo[metrics.DeviceID]
 	if !ok {
@@ -379,7 +379,7 @@ func handleInverterTimeSyncPacket(
 	var timeSync OutboundInverterTimeSyncPacket
 	err := timeSync.UnmarshalBinary(data)
 	if err != nil {
-		return fmt.Errorf("couldn't unmarshal metrics: %v", err)
+		return fmt.Errorf("couldn't unmarshal time sync: %v", err)
 	}
 	di, ok := deviceInfo[timeSync.DeviceID]
 	if !ok {
