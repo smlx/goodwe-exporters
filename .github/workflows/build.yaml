@@ -36,7 +36,7 @@ jobs:
     - name: Get Docker metadata
       if: github.actor != 'dependabot[bot]'
       id: docker_metadata
-      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+      uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
       with:
         images: ghcr.io/${{ github.repository }}/${{ matrix.binary }}
     - run: echo "GITHUB_REPOSITORY_NAME=$(basename ${{ github.repository }})" >> "$GITHUB_ENV"
