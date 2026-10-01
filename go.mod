@@ -1,13 +1,13 @@
 module github.com/smlx/goodwe
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/assert/v2 v2.11.0
 	github.com/alecthomas/kong v1.16.1
 	github.com/lithammer/shortuuid/v4 v4.3.0
 	github.com/prometheus/client_golang v1.24.1
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 )
 
 require (
